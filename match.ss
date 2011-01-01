@@ -57,22 +57,16 @@
 
 ;; YOU'RE NOT ALLOWED TO REFER TO CATA VARS IN GUARDS. (reasonable!)
 
-(module ((match+ match-help match-help1 clause-body let-values**
-           guard-body convert-pat mapper my-backquote extend-backquote
-           sexp-dispatch)
-         (trace-match+ match-help match-help1 clause-body let-values**
-           guard-body convert-pat mapper my-backquote extend-backquote
-           sexp-dispatch)
-         (match match-help match-help1 clause-body let-values**
-           guard-body convert-pat mapper my-backquote extend-backquote
-           sexp-dispatch)
-         (trace-match match-help match-help1 clause-body let-values**
-           guard-body convert-pat mapper my-backquote extend-backquote
-           sexp-dispatch)
-         (with-ellipsis-aware-quasiquote my-backquote)
-         match-equality-test)
+#!chezscheme
+(library (p423 compiler match)
+  (export
+    match match+ trace-match trace-match+ match-equality-test
+    with-ellipsis-aware-quasiquote
+    guard unquote ->)
+  (import (chezscheme))
 
-(import scheme)
+(define-syntax (-> x)
+  (syntax-violation #f "misplaced aux keyword" x))
 
 (define match-equality-test
   (make-parameter
