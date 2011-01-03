@@ -193,6 +193,65 @@
 ;;;   (fixnum-range n) returns #t iff n is within the fixnum range
 ;;;   based on fixnum-bits.
 
+(library (p423 compiler helpers aux)
+  (export
+    word-shift
+    max-frame-var)
+  (import (chezscheme))
+
+(define max-frame-var
+  (make-parameter 100
+    (lambda (n)
+      (assert (integer? n))
+      (assert (positive? n))
+      n)))
+
+(define word-shift 3) ; 64-bit words
+
+)
+
+#!chezscheme
+(library (p423 compiler helpers)
+  (export
+    define-frame-variables
+    $true $nil $void fixnum-range?
+    mask-pair tag-pair size-pair disp-car disp-cdr mask-vector
+    tag-vector
+    disp-vector-length disp-vector-data mask-procedure 
+    tag-procedure disp-procedure-code disp-procedure-data 
+    mask-boolean tag-boolean $false
+    fixnum-bits shift-fixnum mask-fixnum tag-fixnum
+    build-and-run
+    make-begin
+    emit emit-jump emit-program
+    emit-label
+    rand->x86-64-arg
+    label->x86-64-label 
+    disp-opnd disp-opnd? disp-opnd-reg disp-opnd-offset
+    index-opnd index-opnd? index-opnd-breg index-opnd-ireg
+    unique-name unique-name-count extract-suffix unique-label
+    extract-root
+    frame-var? frame-var->index index->frame-var
+    label?
+    max-frame-var
+    uvar?
+    int32? int64? uint6?
+    intersection
+    set? set-cons union difference
+    sra
+    word-shift word-size registers register?
+    rax rcx rdx rbx rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15
+    heap-size stack-size mref mset! reset-machine-state!
+    parameter-registers frame-pointer-register
+    return-value-register return-address-register 
+    allocation-pointer-register
+    define-who trace-define-who
+    )
+  (import
+    (chezscheme)
+    (p423 compiler helpers aux)
+    (p423 compiler match))
+
 (define-syntax define-who
   (lambda (x)
     (syntax-case x ()
@@ -218,16 +277,15 @@
 (define sra (lambda (x n) (ash x (- n))))
 
 ;;; machine state
-(module (word-shift word-size registers register?
-         rax rcx rdx rbx rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15
-         heap-size stack-size $check-heap-overflow mref mset!
-	 reset-machine-state!  parameter-registers
-	 frame-pointer-register return-value-register
-	 return-address-register allocation-pointer-register)
-  (define heap-offset (/ (+ (most-positive-fixnum) 1) 2))
+; (module (word-shift word-size registers register?
+;          rax rcx rdx rbx rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15
+;          heap-size stack-size $check-heap-overflow mref mset!
+; 	 reset-machine-state!  parameter-registers
+; 	 frame-pointer-register return-value-register
+; 	 return-address-register allocation-pointer-register)
 
-  (define word-shift 3) ; 64-bit words
   (define word-size (expt 2 word-shift))
+  (define heap-offset (/ (+ (most-positive-fixnum) 1) 2))
 
   (define registers
     '(rax rcx rdx rbx rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15))
@@ -236,29 +294,44 @@
     (lambda (x)
       (and (memq x registers) #t)))
 
+(define-syntax define-mutable
+  (syntax-rules ()
+    [(_ x)
+     (begin
+       (define state (make-parameter (void)))
+       (define-syntax x
+         (identifier-syntax (x (state))
+           [(set! x e) (state e)])))]
+   [(_ x e)
+    (begin
+      (define state (make-parameter e))
+      (define-syntax x
+        (identifier-syntax (x (state))
+          [(set! x exp) (state exp)])))]))
+
  ; calling conventions
   #;(define caller-saved-registers registers) ; all registers are caller-saved
-  (define parameter-registers '(r8 r9))
-  (define frame-pointer-register 'rbp)
-  (define return-value-register 'rax)
-  (define return-address-register 'r15)
-  (define allocation-pointer-register 'rdx)
+  (define-mutable parameter-registers '(r8 r9))
+  (define-mutable frame-pointer-register 'rbp)
+  (define-mutable return-value-register 'rax)
+  (define-mutable return-address-register 'r15)
+  (define-mutable allocation-pointer-register 'rdx)
 
-  (define rax)
-  (define rcx)
-  (define rdx)
-  (define rbx)
-  (define rbp)
-  (define rsi)
-  (define rdi)
-  (define r8)
-  (define r9)
-  (define r10)
-  (define r11)
-  (define r12)
-  (define r13)
-  (define r14)
-  (define r15)
+  (define-mutable rax)
+  (define-mutable rcx)
+  (define-mutable rdx)
+  (define-mutable rbx)
+  (define-mutable rbp)
+  (define-mutable rsi)
+  (define-mutable rdi)
+  (define-mutable r8)
+  (define-mutable r9)
+  (define-mutable r10)
+  (define-mutable r11)
+  (define-mutable r12)
+  (define-mutable r13)
+  (define-mutable r14)
+  (define-mutable r15)
 
   (define the-heap '#())
   (define the-stack '#())
@@ -381,8 +454,8 @@
                 allocation-pointer-register)])
       (vector-fill! the-stack #x3b3b3b3b3b3b3b3b)
       (vector-fill! the-heap #x5d5d5d5d5d5d5d5d)))
-
-  (reset-machine-state!))
+; 
+;   (reset-machine-state!))
 
 ;;; set related procedures
 
@@ -483,35 +556,84 @@
 
 (define $fp-offset 0)
 
-(define max-frame-var
-  (make-parameter 100
-    (let ([next 0])
-      (lambda (n)
-        (unless (and (fixnum? n) (fx>= n 0))
-          (error 'max-frame-var "invalid max ~s" n))
-        (when (fx>= n next)
-          (do ([i next (fx+ i 1)])
-              ((fx>= i n))
-            (let ([fvi (string->symbol (format "fv~s" i))])
-              (eval `(define-syntax ,fvi
-                       (cons 'macro!
-                         (lambda (x)
-                           (syntax-case x ()
-                             [var (identifier? #'var)
-                              (with-syntax ([fp (datum->syntax #'var frame-pointer-register)])
-                                #'(mref (- fp $fp-offset) ,(fxsll i word-shift)))]
-                             [(set! var val)
-                              (and (eq? (syntax->datum #'set!) 'set!) (identifier? #'var))
-                              (with-syntax ([fp (datum->syntax #'var frame-pointer-register)])
-                                #'(mset! (- fp $fp-offset)
-                                         ,(fxsll i word-shift)
-                                         val))]
-                             [(var x ...)
-                              (with-syntax ([fp (datum->syntax #'var frame-pointer-register)])
-                                #'((mref (- fp $fp-offset) ,(fxsll i word-shift)) x ...))])))))
-              (putprop fvi 'frame-index i)))
-          (set! next n))
-        n))))
+(define-syntax (define-frame-variables x)
+  (syntax-case x ()
+    [(k)
+     #`(k 0 #,(max-frame-var))]
+    [(k min max)
+     (let ([mind (syntax->datum #'min)]
+           [maxd (syntax->datum #'max)])
+       (and (integer? mind) (nonnegative? mind)
+            (integer? maxd) (positive? maxd)
+            (> maxd mind)))
+     (let ([mind (syntax->datum #'min)]
+           [maxd (syntax->datum #'max)])
+       (if (= 1 (- maxd mind))
+           #'(define-frame-variable k min)
+           #`(begin
+               (define-frame-variable k min)
+               (k #,(1+ mind) max))))]))
+
+(define-syntax (define-frame-variable x)
+  (syntax-case x ()
+    [(_ w index)
+     (let ([i (syntax->datum #'index)])
+       (and (integer? i) (nonnegative? i)))
+     (let ([i (syntax->datum #'index)])
+       (with-syntax ([fvi (datum->syntax #'w
+                            (string->symbol
+                              (format "fv~d" i)))])
+         #`(begin
+             (define dummy
+               (begin
+                 (putprop (string->symbol (format "fv~d" #,i))
+                   'frame-index #,i)
+                 (void)))
+             (define-syntax (fvi x)
+               (define (fp k)
+                 (datum->syntax k frame-pointer-register))
+               (syntax-case x (set!)
+                 [k (identifier? #'k)
+                  #`(mref (- #,(fp #'k) $fp-offset)
+                          #,(fxsll index word-shift))]
+                 [(set! k val) (identifier? #`k)
+                  #`(mset! (- #,(fp #'k) $fp-offset)
+                           #,(fxsll index word-shift)
+                           val)]
+                 [(k x (... ...)) 
+                  #`((mref (- #,(fp #'k) $fp-offset)
+                           #,(fxsll index word-shift))
+                     x (... ...))])))))]))
+
+; (define max-frame-var
+;   (make-parameter 100
+;     (let ([next 0])
+;       (lambda (n)
+;         (unless (and (fixnum? n) (fx>= n 0))
+;           (error 'max-frame-var "invalid max ~s" n))
+;         (when (fx>= n next)
+;           (do ([i next (fx+ i 1)])
+;               ((fx>= i n))
+;             (let ([fvi (string->symbol (format "fv~s" i))])
+;               (eval `(define-syntax ,fvi
+;                        (cons 'macro!
+;                          (lambda (x)
+;                            (syntax-case x ()
+;                              [var (identifier? #'var)
+;                               (with-syntax ([fp (datum->syntax #'var frame-pointer-register)])
+;                                 #'(mref (- fp $fp-offset) ,(fxsll i word-shift)))]
+;                              [(set! var val)
+;                               (and (eq? (syntax->datum #'set!) 'set!) (identifier? #'var))
+;                               (with-syntax ([fp (datum->syntax #'var frame-pointer-register)])
+;                                 #'(mset! (- fp $fp-offset)
+;                                          ,(fxsll i word-shift)
+;                                          val))]
+;                              [(var x ...)
+;                               (with-syntax ([fp (datum->syntax #'var frame-pointer-register)])
+;                                 #'((mref (- fp $fp-offset) ,(fxsll i word-shift)) x ...))])))))
+;               (putprop fvi 'frame-index i)))
+;           (set! next n))
+;         n))))
 
 (define frame-var?
   (lambda (x)
@@ -521,10 +643,16 @@
   (lambda (fv)
     (getprop fv 'frame-index)))
 
-(define index->frame-var 
-  (lambda (n)
-    (when (> n (max-frame-var)) (max-frame-var n))
-    (string->symbol (string-append "fv" (number->string n)))))
+; (define index->frame-var 
+;   (lambda (n)
+;     (when (> n (max-frame-var)) (max-frame-var n))
+;     (string->symbol (string-append "fv" (number->string n)))))
+
+(define (index->frame-var n)
+  (when (> n (max-frame-var))
+    (error 'index->frame "index not in range of max-frame-var"
+      `(index ,n) `(max ,(max-frame-var))))
+  (string->symbol (format "fv~d" n)))
 
 ;;; labels
 
@@ -571,7 +699,7 @@
             [else chars]))
         (s0 (reverse chars))))))
 
-(define extract-suffix
+#;(define extract-suffix
   (lambda (sym)
     (let ([str (symbol->string sym)])
       (let ([n (string-length str)]
@@ -601,7 +729,7 @@
 ;;; extract-suffix returns the numeric portion of the unique suffix
 ;;; of a unique name or label.  It returns #f if passed something other
 ;;; than a unique name or label.
-(module (unique-name unique-name-count extract-suffix unique-label)
+; (module (unique-name unique-name-count extract-suffix unique-label)
   (define count 0)
   (define unique-suffix
     (lambda ()
@@ -614,22 +742,22 @@
        (unless (and (integer? x) (exact? x) (>= x 0))
          (error 'unique-name-count "invalid count ~s" count))
        (set! count x)]))
-  (define extract-root
-    (lambda (sym)
-      (list->string
-        (let ([chars (string->list (symbol->string sym))])
-          (define (s0 ls)
-            (cond
-              [(null? ls) chars]
-              [(char-numeric? (car ls)) (s1 (cdr ls))]
-              [else chars]))
-          (define (s1 ls)
-            (cond
-              [(null? ls) chars]
-              [(char-numeric? (car ls)) (s1 (cdr ls))]
-              [(memv (car ls) '(#\. #\$)) (reverse (cdr ls))]
-              [else chars]))
-          (s0 (reverse chars))))))
+;   (define extract-root
+;     (lambda (sym)
+;       (list->string
+;         (let ([chars (string->list (symbol->string sym))])
+;           (define (s0 ls)
+;             (cond
+;               [(null? ls) chars]
+;               [(char-numeric? (car ls)) (s1 (cdr ls))]
+;               [else chars]))
+;           (define (s1 ls)
+;             (cond
+;               [(null? ls) chars]
+;               [(char-numeric? (car ls)) (s1 (cdr ls))]
+;               [(memv (car ls) '(#\. #\$)) (reverse (cdr ls))]
+;               [else chars]))
+;           (s0 (reverse chars))))))
   (define extract-suffix
     (lambda (sym)
       (let ([str (symbol->string sym)])
@@ -648,7 +776,7 @@
           (extract-root sym)
           "$"
           (let ([suffix (or (extract-suffix sym) (unique-suffix))])
-            (substring suffix 0 (string-length suffix))))))))
+            (substring suffix 0 (string-length suffix)))))))
 
 (define label->x86-64-label
   (lambda (lab)
@@ -838,3 +966,7 @@
     (<= (- (expt 2 (- fixnum-bits 1)))
         n
         (- (expt 2 (- fixnum-bits 1)) 1))))
+
+(reset-machine-state!)
+
+)
