@@ -4,7 +4,7 @@
     invalid-tests)
   (import (chezscheme))
 
-(define valid-tests
+(define invalid-tests
   (make-parameter
     '(5
       (set! rax 5)
@@ -26,7 +26,7 @@
       (begin (set! r16 (+ r16 2)))
       (begin (set! r7 (+ r7 2))))))
 
-(define invalid-tests
+(define valid-tests
   (make-parameter
     '((begin (set! rax 5))
       (begin (set! r11 5) (set! rax r11))
