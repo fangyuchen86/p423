@@ -8,7 +8,9 @@
 
 (define-language-wrapper (source/wrapper verify-scheme/wrapper)
   (prefix
-    (import (except scheme set!))
+    (import
+      (except (chezscheme) set!)
+      (p423 compiler helpers))
     (define int64-in-range?
       (lambda (x)
         (<= (- (expt 2 63)) x (- (expt 2 63) 1))))
