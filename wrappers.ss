@@ -1,5 +1,6 @@
 (library (p423 compiler wrappers)
   (export
+    generate-x86-64/wrapper
     source/wrapper
     verify-scheme/wrapper)
   (import
@@ -29,5 +30,12 @@
         (syntax-rules ()
           [(_ x expr) (set! x (handle-overflow expr))]))))
   (suffix rax))
+
+(define (generate-x86-64/wrapper program)
+  (let-values ([(out in err pid)
+                (open-process-ports program
+                  (buffer-mode block)
+                  (native-transcoder))])
+    (read in)))
 
 )
