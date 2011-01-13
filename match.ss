@@ -79,31 +79,31 @@
 (define-syntax match+
   (lambda (x)
     (syntax-case x ()
-      [(_ (ThreadedId ...) Exp Clause ...)
+      [(k (ThreadedId ...) Exp Clause ...)
        #'(let f ((ThreadedId ThreadedId) ... (x Exp))
-           (match-help _ f x (ThreadedId ...) Clause ...))])))
+           (match-help k f x (ThreadedId ...) Clause ...))])))
 
 (define-syntax match
   (lambda (x)
     (syntax-case x ()
-      [(_ Exp Clause ...)
+      [(k Exp Clause ...)
        #'(let f ((x Exp))
-           (match-help _ f x () Clause ...))])))
+           (match-help k f x () Clause ...))])))
 
 (define-syntax trace-match+
   (lambda (x)
     (syntax-case x ()
-      [(_ (ThreadedId ...) Name Exp Clause ...)
+      [(k (ThreadedId ...) Name Exp Clause ...)
        #'(letrec ((f (trace-lambda Name (ThreadedId ... x)
-                       (match-help _ f x (ThreadedId ...) Clause ...))))
+                       (match-help k f x (ThreadedId ...) Clause ...))))
            (f ThreadedId ... x))])))
 
 (define-syntax trace-match
   (lambda (x)
     (syntax-case x ()
-      [(_ Name Exp Clause ...)
+      [(k Name Exp Clause ...)
        #'(letrec ((f (trace-lambda Name (x)
-                       (match-help _ f x () Clause ...))))
+                       (match-help k f x () Clause ...))))
            (f Exp))])))
 
 ;;; ------------------------------
@@ -175,7 +175,7 @@
        (with-syntax (((Mapper ...)
                       (map (lambda (mycata formals depth)
                              (build-mapper formals
-                               (syntax-object->datum depth)
+                               (syntax->datum depth)
                                (syntax-case mycata ()
                                  [#f #'Cata]
                                  [exp #'exp])
@@ -208,7 +208,7 @@
   (let ()
     (define ellipsis?
       (lambda (x)
-        (and (identifier? x) (literal-identifier=? x #'(... ...)))))
+        (and (identifier? x) (free-identifier=? x #'(... ...)))))
     (define Var?
       (lambda (x)
         (syntax-case x (->)
@@ -347,7 +347,7 @@
   (lambda (x)
     (define ellipsis?
       (lambda (x)
-        (and (identifier? x) (literal-identifier=? x #'(... ...)))))
+        (and (identifier? x) (free-identifier=? x #'(... ...)))))
     (define-syntax with-values
       (syntax-rules ()
         ((_ P C) (call-with-values (lambda () P) C))))
@@ -518,14 +518,13 @@
 (define-syntax extend-backquote
   (lambda (x)
     (syntax-case x ()
-      ((_ Template Exp ...)
-       (with-syntax ((quasiquote
-                       (datum->syntax-object #'Template 'quasiquote)))
-         #'(let-syntax ((quasiquote
+      [(_ Template Exp ...)
+       (with-syntax ([quasiquote (datum->syntax #'Template 'quasiquote)])
+         #'(let-syntax ([quasiquote
                           (lambda (x)
                             (syntax-case x ()
-                              ((_ Foo) #'(my-backquote Foo))))))
-             Exp ...))))))
+                              ((_ Foo) #'(my-backquote Foo))))])
+             Exp ...))])))
 
 (define-syntax with-ellipsis-aware-quasiquote
   (lambda (x)
@@ -789,6 +788,15 @@
 ;;; (parse '(program (set! x 3) (+ x 4)))) => (begin (set! x 3) (+ x 4))
 
 ;; CHANGELOG
+
+;; [31 January 2010]
+;; rkd replaced _ with k in the syntax-case patterns for match, match+,
+;; etc., since in R6RS, _ is not a pattern variable.
+
+;; [31 January 2010]
+;; rkd renamed syntax-object->datum and datum->syntax-object to their
+;; R6RS names syntax->datum and datum->syntax.  also replaced the
+;; literal-identifier=? calls with free-identifier=? calls.
 
 ;; [3 February 2008]
 ;; rkd modified overloaded quasiquote to handle expressions followed
