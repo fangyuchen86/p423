@@ -33,7 +33,8 @@
 
 (define (generate-x86-64/wrapper program)
   (let-values ([(out in err pid)
-                (open-process-ports program
+                (open-process-ports
+                  (format "exec '~a'" program)
                   (buffer-mode block)
                   (native-transcoder))])
     (read in)))

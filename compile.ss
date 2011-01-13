@@ -14,7 +14,7 @@
     'replace)
   (unless (zero? (system "cc -m64 -o t t.s runtime.c"))
     (error 'assemble "assembly failed"))
-  "t")
+  "./t")
 
 (define-compiler (p423-compile p423-compile-passes source/wrapper)
   (verify-scheme verify-scheme/wrapper)
