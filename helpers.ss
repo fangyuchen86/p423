@@ -227,6 +227,7 @@
     emit-label
     rand->x86-64-arg
     label->x86-64-label 
+    make-disp-opnd
     disp-opnd disp-opnd? disp-opnd-reg disp-opnd-offset
     index-opnd index-opnd? index-opnd-breg index-opnd-ireg
     unique-name unique-name-count extract-suffix unique-label
