@@ -1,5 +1,7 @@
 (library (p423 compiler compile)
-  (export p423-compile)
+  (export
+    p423-compile
+    p423-compile-passes)
   (import
     (chezscheme)
     (p423 driver)
