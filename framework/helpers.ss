@@ -193,7 +193,8 @@
 ;;;   (fixnum-range n) returns #t iff n is within the fixnum range
 ;;;   based on fixnum-bits.
 
-(library (p423 framework helpers aux)
+#!chezscheme
+(library (framework helpers aux)
   (export
     word-shift
     max-frame-var)
@@ -210,7 +211,8 @@
 
 )
 
-(library (p423 framework helpers)
+#!chezscheme
+(library (framework helpers)
   (export
     define-frame-variables
     $true $nil $void fixnum-range?
@@ -249,8 +251,8 @@
     )
   (import
     (chezscheme)
-    (p423 compiler helpers aux)
-    (p423 compiler match))
+    (framework helpers aux)
+    (framework match))
 
 (define-syntax define-who
   (lambda (x)
@@ -572,7 +574,7 @@
            #'(define-frame-variable k min)
            #`(begin
                (define-frame-variable k min)
-               (k #,(1+ mind) max))))]))
+               (k #,(+ 1 mind) max))))]))
 
 (define-syntax (define-frame-variable x)
   (syntax-case x ()
@@ -859,7 +861,7 @@
   (syntax-rules ()
     [(_ code code* ...)
      (begin
-       (emit '.globl "_scheme_entry")
+;;       (emit '.globl "_scheme_entry")
        (emit-label "_scheme_entry")
        (emit 'pushq 'rbx)
        (emit 'pushq 'rbp)

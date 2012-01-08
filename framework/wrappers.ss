@@ -1,20 +1,14 @@
-(library (framework wrappers)
-  (export)
-  (import
-    (chezscheme)
-    (p423 compiler driver))
-
 (language-wrapper
-  (λ (pass-name x)
+  (lambda (pass-name x)
     (case pass-name
       [(source verify-scheme)
        `(let ()
           (import (except (chezscheme) set!))
           (define int64-in-range?
-            (λ (x)
+            (lambda (x)
               (<= (- (expt 2 63)) x (- (expt 2 63) 1))))
           (define handle-overflow
-            (λ (x)
+            (lambda (x)
               (cond
                 [(not (number? x)) x]
                 [(int64-in-range? x) x]
@@ -30,6 +24,7 @@
           ,x
           rax)]
       [else x])))
+
 
 ;; (define-language-wrapper (source/wrapper verify-scheme/wrapper)
 ;;   (prefix
@@ -63,4 +58,4 @@
 ;;                   (native-transcoder))])
 ;;     (read in)))
 
-)
+

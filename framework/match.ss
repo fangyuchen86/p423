@@ -93,10 +93,13 @@
 (library
   (framework match)
   (export
-    match match+ trace-match trace-match+ match-equality-test
-    with-ellipsis-aware-quasiquote guard unquote ->)
+    match match+ trace-match trace-match+
+    match-equality-test guard unquote ->)
   (import (chezscheme))
   
+(define-syntax (-> x)
+  (syntax-violation #f "misplaced aux keyword" x))
+
 (define match-equality-test
   (make-parameter
     equal?

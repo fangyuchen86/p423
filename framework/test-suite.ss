@@ -1,4 +1,4 @@
-(library (p423 framework test-suite)
+(library (framework test-suite)
   (export valid-tests invalid-tests)
   (import (chezscheme))
 

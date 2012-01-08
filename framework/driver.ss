@@ -229,26 +229,26 @@
 ;;;    all passes, and (timed-passes #f) has the same effect as
 ;;;    (trusted-passes '()).
 
+#!chezscheme
 (library
+  (framework driver)
   (export
     language-wrapper tracer suppress-language-definition game-eval analyze-all
     $analyze test-all test-one test-last trusted-passes print-file
     starting-pass compiler-passes timed-passes check-final-output-only
     test-one-invalid test-last-invalid test-all-invalid)
-  (import (chezscheme))
+  (import
+    (chezscheme)
+    (framework match)
+    (framework helpers)
+    (framework test-suite))
+  
 (define test-ordinal #f)
 
 (define compiler-passes
   (let ([passes #f])
     (case-lambda
-      [() (or passes
-             ; backward compatibility:
-              (if (top-level-bound? 'pass-names)
-                  (let ([p pass-names])
-                    (unless (valid-passes? p)
-                      (error 'pass-names "invalid pass-names value ~s" p))
-                    p)
-                  '()))]
+      [() passes]
       [(p)
        (unless (valid-passes? p)
          (error 'compiler-passes "invalid pass list ~s" p))
@@ -371,7 +371,7 @@
 (define $analyze
   (lambda (emit? echo?)
     (define mod 72)
-    (let f ([tests tests] [n 0] [passed 0] [m mod])
+    (let f ([tests (valid-tests)] [n 0] [passed 0] [m mod])
       (if (null? tests)
           (values passed n)
           (begin
@@ -393,7 +393,7 @@
     [() (test-all #t #t)]
     [(emit?) (test-all emit? #t)]
     [(emit? verbose?)
-     (let f ([tests tests] [n 0])
+     (let f ([tests (valid-tests)] [n 0])
        (unless (null? tests)
          (when verbose?
            (let ([s (format "~s: " n)])
@@ -428,7 +428,7 @@
   (case-lambda
     [() (test-all-invalid #t)]
     [(verbose?)
-     (let f ([tests invalid-tests] [n 0])
+     (let f ([tests (invalid-tests)] [n 0])
        (unless (null? tests)
          (when verbose?
            (let ([s (format "~s: " n)])
@@ -444,7 +444,7 @@
       (set! *last-input-expr* expr)
       ((call/cc
          (lambda (k)
-           (parameterize ([error-handler
+           (parameterize ([base-exception-handler
                            (lambda (who msg . args)
                              (parameterize ([print-level 3] [print-length 6])
                                (k (lambda ()
@@ -469,6 +469,8 @@
     [(emit?) ($test-one *last-input-expr* emit? #t #f)]
     [(emit? verbose?) ($test-one *last-input-expr* emit? verbose? #f)]))
 
+;; Unfortunately, this has not been revised for R6RS
+#;
 (define fmt
   (lambda (x n)
     (define digit
@@ -498,9 +500,9 @@
          (let ([elapsed (sstats-difference (statistics) before)])
            (values
              v
-             (format "~asec, ~amb"
-               (fmt (/ (sstats-cpu elapsed) 1000) 3)
-               (fmt (/ (sstats-bytes elapsed) (expt 2 20)) 3))))))]))
+             (format "~asec, ~amb (inexact)"
+               (/ (sstats-cpu elapsed) 1000)
+               (/ (sstats-bytes elapsed) (expt 2 20)))))))]))
 
 (define $test-one
   (lambda (original-input-expr emit? verbose? ordinal)
@@ -509,8 +511,8 @@
     (define-syntax on-error
       (syntax-rules ()
         [(_ e0 e1 e2 ...)
-         (parameterize ([error-handler
-                         (let ([eh (error-handler)])
+         (parameterize ([base-exception-handler
+                         (let ([eh (base-exception-handler)])
                            (lambda args
                              (parameterize ([current-output-port
                                              (console-output-port)])
