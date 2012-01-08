@@ -1,8 +1,5 @@
-(library (p423 compiler wrappers)
-  (export
-    generate-x86-64/wrapper
-    source/wrapper
-    verify-scheme/wrapper)
+(library (framework wrappers)
+  (export)
   (import
     (chezscheme)
     (p423 compiler driver))

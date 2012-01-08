@@ -193,7 +193,7 @@
 ;;;   (fixnum-range n) returns #t iff n is within the fixnum range
 ;;;   based on fixnum-bits.
 
-(library (p423 compiler helpers aux)
+(library (p423 framework helpers aux)
   (export
     word-shift
     max-frame-var)
@@ -210,8 +210,7 @@
 
 )
 
-#!chezscheme
-(library (p423 compiler helpers)
+(library (p423 framework helpers)
   (export
     define-frame-variables
     $true $nil $void fixnum-range?

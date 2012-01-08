@@ -1,7 +1,5 @@
-(library (p423 compiler test-suite)
-  (export
-    valid-tests
-    invalid-tests)
+(library (p423 framework test-suite)
+  (export valid-tests invalid-tests)
   (import (chezscheme))
 
 (define invalid-tests
