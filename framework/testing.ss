@@ -68,9 +68,10 @@
 
 (define (test-one compile)
   (lambda (input)
-    (guard
-      (x [else (process-result x)])
-      (compile input))))
+    (let ((r (guard
+               (x [else (process-result x)])
+               (compile input))))
+      (process-result r))))
 
 (define (test-number num)
   ((test-one p423-compile) (list-ref (valid-tests) num)))
