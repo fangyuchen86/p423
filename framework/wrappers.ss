@@ -8,9 +8,15 @@
     (framework helpers)
     (framework driver))
 
+(define env
+  (environment
+    '(chezscheme)
+    '(framework helpers)))
+
 (define-language-wrapper
   (source/wrapper verify-scheme/wrapper)
   (x)
+  (environment env)
   (import
     (except (chezscheme) set!)
     (framework helpers))
@@ -32,7 +38,8 @@
       (syntax-rules ()
         [(_ x expr) (set! x (handle-overflow expr))])))
   (reset-machine-state!)
-  rax)
+  ,x
+  ,return-value-register)
 
 (define (generate-x86-64/wrapper program)
   (let-values ([(out in err pid)

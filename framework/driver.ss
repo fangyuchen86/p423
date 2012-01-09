@@ -268,7 +268,7 @@
 (define-syntax (break/when x)
   (syntax-violation #f "misplaced aux keyword" x))
 
-(trace-define (verify-against inv input-res output output-res pass)
+(define (verify-against inv input-res output output-res pass)
   (define (stringify x)
     (if (string? x)
         x
