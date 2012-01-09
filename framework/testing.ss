@@ -54,14 +54,14 @@
   (test-runner-current (fresh-test-runner)))
 
 (define (test-valid)
-  (test-compiler-suite 'p423-compile p423-compile (valid-tests)))
+  (test-compiler-suite p423-compile (valid-tests)))
 
 (define (test-invalid)
-  (test-compiler-suite 'p423-compile p423-compile (invalid-tests)))
+  (test-compiler-suite p423-compile (invalid-tests)))
 
-(define (test-compiler-suite name compile suite)
+(define (test-compiler-suite compile suite)
+  (let ([runner (fresh-test-runner)])
   (begin
-    (reset-test-runner)
     (print-group-heading)
     (let loop ((suite suite) (test-num 0))
       (if (null? suite)
