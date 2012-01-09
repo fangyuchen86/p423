@@ -72,9 +72,7 @@
 
 (define (test-one compile runner)
   (lambda (input test-num)
-    (let ((r (guard
-               (x [else (process-result x runner test-num)])
-               (compile input))))
+    (let ((r (guard (x [else x]) (compile input))))
       (process-result r runner test-num))))
 
 (define (test-number num)
