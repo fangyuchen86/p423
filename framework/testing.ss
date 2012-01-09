@@ -22,49 +22,24 @@
 ;; PERFORMANCE OF THIS SOFTWARE.
 ;; }
 
-;; @* Introduction. This module defines a testing framework for P423 
-;; compilers it provides a set of convenience procedures and wrappers, 
-;; coupled with a SRFI-64 test runner, that enables the efficient and 
-;; manageable testing of P423 created compilers.
-;; The |(p423 driver)| library provides the means to define 
-;; compilers based on a series of passes and language wrappers.
-;; Each compiler pass is checked for correctness as it runs.
-;; Optionally, a compiler pass may be disabled on demand.
-;; This provides some basic testing and verification of compilers
-;; defined in these terms, but it does not handle the generalization 
-;; of this to larger test suites of programs.
-;; That is, given a single program source, we may be reasonably 
-;; certain that a compiler for that program is correct by running 
-;; the compiler on the source program, but there is no general
-;; mechanism defined by |(p423 driver)| for automating this across 
-;; many programs and displaying nice output.
-;; To help with this, |(p423 testing)| defines conveniences for 
-;; doing this sort of testing. 
-;; It is based on the foundation provided by |(srfi :64)|. 
-;; It provides the following general facilities:
+;; Adapated for P423 Spring 2012 by Claire Alvis
 
-;; \medskip{\parindent = 0.5in
-;; \item{$\to$} A test runner for conveniently displaying test successes
-;; and failures;
-;; \item{$\to$} Convenience procedures for running a collection of tests
-;; in a uniform way; and,
-;; \item{$\to$} Conveniencees for inspecting and displaying errors and
-;; test failures.
-;; \par}
-
-;; @(testing.sls@>=@q)
 (library (framework testing)
   (export
-    test-runner-current
-    test-compiler-suite
-    test-compiler
-    make-p423-test-runner
-    reset-p423-test-runner
+    ;; to run tests
+    test-valid
+    test-invalid
+    test-one
+    test-number
+
+    ;; debugging
     display-test-failure
     test-failure-condition)
   (import
     (chezscheme)
-    (framework driver)))
+    (framework test-suite)
+    (compiler compile)
+    (framework driver))
 
 (define-record test-runner
   (passed failed previous-result test-history))
@@ -78,48 +53,59 @@
 (define (reset-test-runner)
   (test-runner-current (fresh-test-runner)))
 
+(define (test-valid)
+  (test-compiler-suite 'p423-compile p423-compile (valid-tests)))
+
+(define (test-invalid)
+  (test-compiler-suite 'p423-compile p423-compile (invalid-tests)))
+
 (define (test-compiler-suite name compile suite)
   (begin
-    (reset-p423-test-runner)
-    (for-each (test-one compile) suite)))
+    (reset-test-runner)
+    (print-group-heading)
+    (for-each (test-one compile) suite)
+    (print-finalization)))
 
 (define (test-one compile)
   (lambda (input)
     (guard
-      (x [else (set-test-runner-previous-result! x)])
+      (x [else (process-result x)])
       (compile input))))
 
-(define (make-p423-test-runner)
-  #;
-  (let ([runner (test-runner-null)])
-    (test-runner-aux-value! runner '())
-    (test-runner-on-group-begin! runner test-group-heading)
-    (test-runner-on-test-end! runner test-completion-handler)
-    (test-runner-on-final! runner finalization-handler)
-    runner))
+(define (test-number num)
+  ((test-one p423-compile) (list-ref (valid-tests) num)))
+
+(define (process-result x)
+  (begin
+    (set-test-runner-previous-result! (test-runner-current) x)
+    (print-individual-completion)
+    (record-test-result! (test-runner-current))))
 
 (define (print-group-heading)
   (printf "Test~8,8tResult~16,8tReason~n")
   (printf "---------------------------~n"))
+
+(define (test-passed? runner)
+  (let ((pr (test-runner-previous-result runner)))
+    (and (not (error? pr))
+         (not (pass-verification-violation? pr)))))
 
 ;;    1    Pass    
 ;;    2    Fail    Pass: PASS-NAME
 ;;    3    Fail    Runtime error
 ;; ...
 (define (print-individual-completion)
-  (printf "~4d~8,8t~:[Fail~;Pass~]~16,8t~a~n"
-    (current-test-number)
-    (test-passed? runner)
-    (short-error runner))
-  (record-test-failure! runner))
+  (let ((runner (test-runner-current)))
+    (printf "~4d~8,8t~:[Fail~;Pass~]~16,8t~a~n"
+      (current-test-number)
+      (test-passed? runner)
+      (short-error runner))))
 
 (define (short-error runner)
   (let ((pr (test-runner-previous-result runner)))
     (cond
       [(error? pr)
        (cond
-         [(pass-verification-violation? pr)
-          (format "Pass: ~a" (pass-verification-violation-pass pr))]
          [else "Runtime error"])]
       [else ""])))
 
@@ -129,24 +115,34 @@
 ;; Failures:        25
 ;; Total:          200
 (define (print-finalization)
-  (let ((passed (pass-count)) (failed (fail-count)))
-    (printf "~nTesting Summary~n")
-    (printf "~a~n" (make-string 15 #\-))
-    (printf "Passes:~16,8t~4d~n" passed)
-    (printf "Failures:~16,8t~4d~n" failed)
-    (printf "Total:~16,8t~4d~n" (+ passed failed))))
+  (let ((runner (test-runner-current)))
+    (let ((passed (test-runner-passed runner))
+          (failed (test-runner-failed runner)))
+      (printf "~nTesting Summary~n")
+      (printf "~a~n" (make-string 15 #\-))
+      (printf "Passes:~16,8t~4d~n" passed)
+      (printf "Failures:~16,8t~4d~n" failed)
+      (printf "Total:~16,8t~4d~n" (+ passed failed)))))
 
-(define (current-test-number runner)
-  (+ (test-runner-passed runner) (test-runner-failed runner)))
+(define (current-test-number)
+  (let ((runner (test-runner-current)))
+    (+ (test-runner-passed runner) (test-runner-failed runner))))
 
-(define (record-test-failure! runner)
-  (when (and (not (test-passed? runner))
-             (was-error? runner))
-    (let ((pr (test-runner-previous-result runner)))
-      (set-test-runner-previous-history! runner
-        (cons
-          (cons (current-test-number runner) pr)
-          (test-runner-previous-history runner))))))
+(define (record-test-result! runner)
+  (let ((pr (test-runner-previous-result runner)))
+    (cond
+      ((and (not (test-passed? runner))
+            (or (pass-verification-violation? pr)
+                (error? pr)))
+       (set-test-runner-test-history! runner
+         (cons
+           (cons (current-test-number) pr)
+           (test-runner-test-history runner)))
+       (set-test-runner-failed! runner
+         (+ (test-runner-failed runner) 1)))
+      (else
+        (set-test-runner-passed! runner
+          (+ (test-runner-passed runner) 1))))))
 
 (define (display-test-failure test-num)
   (let ([res (test-failure-condition test-num)])
@@ -167,4 +163,4 @@
                  (test-runner-current)))])
     (and res (cdr res))))
 
-
+)
