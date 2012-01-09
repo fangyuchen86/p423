@@ -1,687 +1,309 @@
-;;; driver.ss
-;;; Copyright (c) 2001-2009 R. Kent Dybvig, Oscar Waddell, and Daniel P. Friedman
+;; Copyright $\copyright$ 2011 Aaron W. Hsu $\langle\.{arcfide@sacrideo.us}\rangle$
+;; \smallskip\noindent
+;; Permission to use, copy, modify, and distribute this software for any
+;; purpose with or without fee is hereby granted, provided that the above
+;; copyright notice and this permission notice appear in all copies.
+;; \smallskip\noindent
+;; THE SOFTWARE IS PROVIDED ``AS IS'' AND THE AUTHOR DISCLAIMS ALL
+;; WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+;; WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+;; AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+;; DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+;; PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+;; TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+;; PERFORMANCE OF THIS SOFTWARE.
+;; }
 
-;;; This file contains driver code for running p423 compilers through
-;;; their paces.
+#!chezscheme
+(library
+  (framework driver aux)
+  (export
+    verify-pass-specifications
+    verify-iterated-pass-specifications
+    &pass-verification-violation
+    wrapper-violation?
+    wrapper-violation-name
+    &wrapper-violation
+    make-wrapper-violation
+    make-pass-verification-violation
+    pass-verification-violation?
+    pass-verification-violation-pass
+    pass-verification-violation-input
+    pass-verification-violation-output
+    pass-verification-violation-input-result
+    pass-verification-violation-output-result)
+  (import (chezscheme))
 
-;;; Overview:
-;;;
-;;; The driver runs each pass of the compiler and tests its output to
-;;; make sure it returns the same answer as the source program.  It can
-;;; test one test at a time or all of the tests in a list of tests.
+(define (verify-pass-specifications x)
+  (syntax-case x (iterate break/when trace)
+    [() #t]
+    [((iterate . specs) . rest)
+     (begin
+       (verify-iterated-pass-specifications #'specs)
+       (verify-pass-specifications #'rest))]
+    [((break/when pred?) . rest)
+     (syntax-violation 'define-compiler
+       "break encountered outside of an iteration"
+       x #'(break/when pred?))]
+    [((pass wrapper) . rest) (identifier? #'pass)
+     (verify-pass-specifications #'rest)]
+    [((trace pass wrapper) . rest) (identifier? #'trace)
+     (verify-pass-specifications #'rest)]
+    [((pass wrapper assemble) . rest) (identifier? #'pass)
+     (verify-pass-specifications #'rest)]
+    [(bad . rest)
+     (syntax-violation 'define-compiler
+       "invalid pass specification" x #'bad)]
+    [else
+      (syntax-violation 'define-compiler
+        "invalid pass specifications" x)]))
 
-;;; Basic Usage:
-;;;
-;;; To use the driver for Assignment 1, create a file containing:
-;;;
-;;; (eval-when (compile load eval)
-;;;   (optimize-level 2)
-;;;   (case-sensitive #t)
-;;; )
-;;;
-;;; (load "match.ss")
-;;; (load "helpers.ss")
-;;; (load "fmts.pretty")     ; inform pretty-print about new forms
-;;; (load "driver.ss")
-;;;
-;;; (load "a1.ss")
-;;; (load "a1-wrapper.ss")   ; defines syntactic forms and procedures
-;;;                          ; needed to output of each pass
-;;; (compiler-passes '(
-;;;   verify-scheme
-;;;   generate-x86-64
-;;; ))
-;;;
-;;; (load "tests1.ss")
-;;;
-;;; Load this into Chez Scheme, and type (test-all) to run all of the
-;;; valid tests, or (test-all-invalid) to run all of the invalid tests.
-;;; Use test-one or test-one-invalid to run an individual test.
-;;;
-;;; To use the driver for later assignments, change the last several
-;;; lines to include the appropriate files and list the current passes.
+(define verify-iterated-pass-specifications
+  (case-lambda
+    [(x) (verify-iterated-pass-specifications x #f x)]
+    [(orig break? x)
+     (syntax-case x (iterate break/when trace)
+       [()
+        (unless break?
+          (syntax-violation 'define-compiler "no break in iterate" orig))
+        #t]
+       [((break/when pred?) . rest)
+        (verify-iterated-pass-specifications orig #t #'rest)]
+       [((iterate spec1 spec2 ...) . rest)
+        (verify-iterated-pass-specifications #'(spec1 spec2 ...))
+        (verify-iterated-pass-specifications orig break? #'rest)]
+       [((pass wrapper) . rest) (identifier? #'pass)
+        (verify-iterated-pass-specifications orig break? #'rest)]
+       [((trace pass wrapper) . rest) (identifier? #'pass)
+        (verify-iterated-pass-specifications orig break? #'rest)]
+       [((pass wrapper assemble) . rest) (identifier? #'pass)
+        (syntax-violation 'define-compiler
+          "emit pass encountered during iteration"
+          orig #'(pass wrapper assemble))]
+       [(wrong . rest)
+        (syntax-violation 'define-compiler "invalid pass" orig #'wrong)]
+       [wrong
+         (syntax-violation
+           'define-compiler "invalid, dotted form" orig)])]))
 
+(define-condition-type &wrapper-violation &error
+  make-wrapper-violation wrapper-violation?
+  (name wrapper-violation-name))
 
-;;; Detailed description of the driver routines:
+(define-condition-type &pass-verification-violation &condition
+  make-pass-verification-violation
+  pass-verification-violation?
+  (pass pass-verification-violation-pass)
+  (input pass-verification-violation-input)
+  (output pass-verification-violation-output)
+  (input-result pass-verification-violation-input-result)
+  (output-result pass-verification-violation-output-result))
 
-;;;  (compiler-passes '(<spec> ...))
-;;;    Tells the driver which compiler passes to run.  This should be
-;;;    set once at the top of the file containing your compiler.  <spec>
-;;;    may be one of the following:
-;;;
-;;;    pass-name
-;;;      run the pass named by pass-name.  Each pass is fed the output
-;;;      of the preceding pass, except the first, which is fed the
-;;;      original input.
-;;;
-;;;    (iterate <spec> ...)
-;;;      run <spec> ... repeatedly
-;;;
-;;;    (break when predicate?)
-;;;      break out of an iteration, or if not in an iteration, exit
-;;;      from the driver, if predicate? returns true when passed the
-;;;      the output of the pass just run.
-;;;
-;;;    (break unless predicate?)
-;;;      break out of an iteration, or if not in an iteration, exit
-;;;      from the driver, if predicate? returns false when passed the
-;;;      the output of the pass just run.
-;;;
-;;;    Example:
-;;;      (compiler-passes '(a (iterate b (break when c?) d) e))
-;;;      runs a on the input and feeds its output to b.  If c? applied
-;;;      to the output of b is true, feeds the output of b to e;
-;;;      otherwise, feeds the output of b to d and the output of d to
-;;;      b, then tests c? on the output of b again, and so on.
-
-;;;  (language-wrapper procedure)
-;;;    Tells the driver a procedure it should call to wrap each expression
-;;;    before evaluation.  Defaults to the procedure value of:
-;;;      (lambda (x) `(let () (import scheme) ,x))
-
-;;;  (test-one-invalid '<program>)
-;;;  (test-one-invalid '<program> <verbose?>)
-;;;    Runs the first pass of the compiler, assumed to be a verifier,
-;;;    displays the error message it produces or, if it doesn't signal
-;;;    an error, raises one of its own to indicate failure.
-;;;
-;;;    If <verbose?> is false, less diagnostic information is printed.
-;;;    <verbose?> defaults to #t.
-
-;;;  (test-all-invalid)
-;;;  (test-all-invalid <verbose?>)
-;;;    Runs test-one-invalid in order on the tests in the list bound
-;;;    to the variable invalid-tests, stopping if any test fails.  Usually
-;;;    used with tests.ss loaded.
-;;;
-;;;    If <verbose?> is false, less diagnostic information is printed.
-;;;    <verbose?> defaults to #t.
-
-;;;  (test-last-invalid)
-;;;  (test-last-invalid <verbose?>)
-;;;    Like test-one-invalid, except <program> is the last input to
-;;;    test-one-invalid or the last test run by test-all-invalid.
-;;;
-;;;    If <verbose?> is false, less diagnostic information is printed.
-;;;    <verbose?> defaults to #t.
-
-;;;  (test-one '<program>)
-;;;  (test-one '<program> <emit?>)
-;;;  (test-one '<program> <emit?> <verbose?>)
-;;;    Compile and test <program>.  test-one first computes the correct
-;;;    answer by evaluting it with Chez Scheme's interpreter.  It then
-;;;    passes the program to the first pass, evalutes the resulting
-;;;    program, and compares the value with the correct answer.  If it
-;;;    compares equal?, it goes on to the next pass, passing it the
-;;;    program returned by the first.  It repeats this process until
-;;;    all passes have been run, then exits.
-;;;
-;;;    If a pass is the code-generation pass (generate-x86-64), its
-;;;    output is compiled or assembled, linked with the run-time code
-;;;    in startup.c, and run.  The output is read back in and compared
-;;;    with the correct answer.  The next pass, if any, is run on the
-;;;    output of the preceding pass.
-;;;
-;;;    If the result of evaluating the program returned by any of the
-;;;    passes does not equal the correct answer or if the evaluation
-;;;    causes an error, test-one stops, prints the input to the pass,
-;;;    prints the output to the pass, and displays the error message.
-;;;    If a problem occurs while running a pass, test-one stops, prints
-;;;    the input to the pass, and displays the error message.
-;;;
-;;;    If <emit?> is false, test-one doesn't build or run the code
-;;;    generated by the code generation pass(es).  This is useful when
-;;;    trying to test changes to earlier parts of the compiler, since
-;;;    the process of building an executable file and running it is
-;;;    rather slow.  <emit?> defaults to #t.
-;;;
-;;;    If <verbose?> is false, less diagnostic information is printed.
-;;;    <verbose?> defaults to #t.
-
-;;;  (test-all)
-;;;  (test-all <emit?>)
-;;;  (test-all <emit?> <verbose?>)
-;;;    Runs test-one in order on the tests in the list bound to the
-;;;    variable tests, stopping if any test fails.  Usually used with
-;;;    tests.ss loaded.  If <verbose?>  is true, test-all prints each
-;;;    test before it is compiled and run.  Passes <emit?>  and <verbose?>
-;;;    along to test-one.  <emit?>  and <verbose?> both default to #t.
-
-;;;  (test-last)
-;;;  (test-last <emit?>)
-;;;  (test-last <emit?> <verbose?>)
-;;;    Like test-one, except <program> is the last input to test-one
-;;;    or the last test run by test-all or analyze-all.
-
-;;;  (analyze-all)
-;;;  (analyze-all <emit?>)
-;;;    Runs test-one in order on the tests in the list bound to the
-;;;    variable tests.  Does not stop for when a test fails.  Usually
-;;;    used with tests.ss loaded.  Passes <emit?> along to test-one,
-;;;    with <verbose?> false.  <emit?> defaults to #t.  Prints a "." for
-;;;    each test before running it, but doesn't print the test itself.
-;;;    Prints a summary after all tests have been run.
-
-;;;  (tracer #t)
-;;;    Causes test-one to print the output of each pass.
-;;;
-;;;  (tracer '<pass-name>)
-;;;    Causes test-one to print only the output of the specified
-;;;    pass.
-;;;
-;;;  (tracer '(<pass-name> ...))
-;;;    Causes test-one to print only the output of the specified
-;;;    passes.  (tracer '()) or (tracer #f) disables tracing.
-
-;;;  (suppress-language-definition #t)
-;;;    Causes the language definition part of an intermediate language
-;;;    program to be omitted from tracer output, i.e., if the output
-;;;    appears as (let () (begin <definitions> ...) expr), only expr
-;;;    is printed.
-;;;
-;;;  (suppress-language-definition #f)
-;;;    Disables suppression of the language definition.
-
-;;;  (starting-pass '<pass-name>)
-;;;    Causes driver to start running each test from (first run of)
-;;;    <pass-name>.  Usually used with test-one, but can be used with
-;;;    test-all and analyze-all if the variable tests is bound to a
-;;;    list of valid inputs to <pass-name>.  also respected by
-;;;    test-last.
-;;;
-;;;  (starting-pass #f)
-;;;    Resets starting pass to original first pass.
-
-;;;  (game-eval)
-;;;  (game-eval <proc>)
-;;;    game-eval is a parameter that determines the evaluator used to
-;;;    evaluate the output of each nongenerator pass.  When called without
-;;;    arguments, it returns the current game evaluator.  When called
-;;;    with one argument, <proc>, it sets the game evaluator to <proc>.
-;;;    The initial game evaluator is interpret, which provides quick
-;;;    turnaround for small test cases.  Set it to compile to get better
-;;;    error messages and inspector information.
-
-;;;  (print-file '<pathname>)
-;;;    Prints the contents of the file specified by <pathname> to the
-;;;    current output port.
-
-;;;  (trusted-passes)
-;;;  (trusted-passes '(<pass-name> ...))
-;;;    Without arguments, returns a list naming the trusted passes, i.e.,
-;;;    those whose output is not to be compared against the original input.
-;;;    Otherwise, sets the list of trusted passes.  (trusted-passes #t)
-;;;    is short-hand for trusting all passes, and (trusted-passes #f)
-;;;    has the same effect as (trusted-passes '()).
-
-;;;  (check-final-output-only)
-;;;  (check-final-output-only <boolean>)
-;;;    check-final-output is a parameter.  If set to true, the value
-;;;    of the final output of the compiler is compared against the value
-;;;    of the original input, and the normal checking of each intermediate
-;;;    program is suppressed, i.e., all passes are considered trusted.
-
-;;;  (timed-passes)
-;;;  (timed-passes '(<pass-name> ...))
-;;;    Without arguments, returns a list naming the timed passes, i.e.,
-;;;    those for which compile times are displayed.  Otherwise, sets the
-;;;    list of timed passes.  (timed-passes #t) is short-hand for timing
-;;;    all passes, and (timed-passes #f) has the same effect as
-;;;    (trusted-passes '()).
+)
 
 #!chezscheme
 (library
   (framework driver)
   (export
-    language-wrapper tracer suppress-language-definition game-eval analyze-all
-    $analyze test-all test-one test-last trusted-passes print-file
-    starting-pass compiler-passes timed-passes check-final-output-only
-    test-one-invalid test-last-invalid test-all-invalid)
+    trace
+    iterate break/when
+    environment
+    &wrapper-violation
+    make-wrapper-violation
+    make-pass-verification-violation
+    wrapper-violation-name
+    wrapper-violation?
+    pass-verification-violation?
+    pass-verification-violation-pass
+    &pass-verification-violation
+    pass-verification-violation-input
+    pass-verification-violation-input-result
+    pass-verification-violation-output
+    pass-verification-violation-output-result
+    display-pass-verification-violation
+    define-compiler
+    define-language-wrapper)
   (import
     (chezscheme)
-    (framework match)
-    (framework helpers)
-    (framework test-suite))
-  
-(define test-ordinal #f)
+    (framework driver aux))
 
-(define compiler-passes
-  (let ([passes #f])
-    (case-lambda
-      [() passes]
-      [(p)
-       (unless (valid-passes? p)
-         (error 'compiler-passes "invalid pass list ~s" p))
-       (set! passes p)])))
+(define-syntax define-language-wrapper
+  (syntax-rules (environment)
+    [(_ (n1 n2 ...) (args ...) exps ...)
+     (begin
+       (define-language-wrapper n1 (args ...) exps ...)
+       (define-language-wrapper n2 (args ...) exps ...)
+       ...)]
+    [(_ name (args ...) (environment env) exps ...)
+     (define name
+       (let ([the-env env])
+         (lambda (args ...)
+           (with-exception-handler
+             (lambda (c)
+               (cond
+                 [(warning? c) (display-condition c)]
+                 [else (raise
+                         (condition (make-wrapper-violation 'name) c))]))
+             (lambda ()
+               (eval `(let () exps ...) the-env))))))]
+    [(_ name (args ...) exps ...)
+     (begin (define env (environment '(chezscheme)))
+            (define-language-wrapper name (args ...)
+              (environment env)
+              exps ...))]))
 
-(define valid-passes?
-  (lambda (p)
-    (define ipass?
-      (lambda (p)
-        (match p
-          [(break when ,pred) (guard (symbol? pred)) #t]
-          [(break unless ,pred) (guard (symbol? pred)) #t]
-          [,p (pass? p)])))
-    (define pass?
-      (lambda (p)
-        (match p
-          [(iterate ,p ...) (andmap ipass? `(,p ...))]
-          [,p (guard (symbol? p)) #t]
-          [,p #f])))
-    (match p
-      [(,p ...) (andmap pass? `(,p ...))]
-      [,p #f])))
+(define-syntax compose-passes
+  (syntax-rules (iterate break/when trace)
+    [(_ check k (input source-wrapper)) input]
+    [(_ check k (input source-wrapper) (iterate . specs) . rest)
+     (compose-passes check k
+       ((run-iterated-pass check input source-wrapper . specs)
+        (next-wrapper source-wrapper . specs))
+       . rest)]
+    [(_ check k (input source-wrapper) (break/when pred?) . rest)
+     (begin
+       (when (not (syntax->datum #'k))
+         (syntax-violation 'define-compiler
+           "break encountered outside of iterate clause"
+           #'(break/when pred?)))
+       #t)
+     (compose-passes check k
+       ((let ([inv input]) (if (pred? inv) (k inv) inv))
+        source-wrapper)
+       . rest)]
+    [(_ check k (input source-wrapper) (pass wrapper) . rest)
+     (compose-passes check k
+       ((run-pass check input source-wrapper wrapper pass) wrapper)
+       . rest)]
+    [(_ check k (input source-wrapper) (trace pass wrapper) . rest)
+     (let ([pass (trace-lambda pass (i) (pass i))])
+       (compose-passes check k (input source-wrapper) 
+         (pass wrapper) . rest))]
+    [(_ check k (input source-wrapper) (pass wrapper assemble) . rest)
+     (begin
+       (when (syntax->datum #'k)
+         (syntax-violation 'define-compiler
+           "unexpected emit pass inside iteration"
+           #'(pass wrapper assemble)))
+       (when (not (null? (syntax->datum #'rest)))
+         (syntax-violation 'define-compiler
+           "non-final assemble pass"
+           #'(pass wrapper assemble)))
+       #t)
+     (run-emit-pass check input source-wrapper wrapper assemble pass)]))
 
-(define all-pass-names
-  (lambda ()
-    (define ipass
-      (lambda (p)
-        (match p
-          [(break when ,pred) (guard (symbol? pred)) '()]
-          [(break unless ,pred) (guard (symbol? pred)) '()]
-          [,p (pass p)])))
-    (define pass
-      (lambda (p)
-        (match p
-          [(iterate ,[ipass -> p*] ...) (apply append p*)]
-          [,p (guard (symbol? p)) (list p)]
-          [,p #f])))
-    (match (compiler-passes)
-      [(,[pass -> p*] ...) (apply append p*)])))
+(define-syntax next-wrapper
+  (syntax-rules (iterate break/when trace)
+    [(_ src specs ... (pass wrapper) (break/when . rest)) wrapper]
+    [(_ src specs ... (trace pass wrapper) (break/when . rest)) wrapper]
+    [(_ src (break/when . rest)) src]
+    [(_ src specs ... last) (next-wrapper src specs ...)]))
 
-(define language-wrapper
-  (make-parameter
-    (lambda args
-      (error #f "language-wrapper parameter has not been set"))
-    (lambda (x)
-      (unless (procedure? x)
-        (error 'language-wrapper "~s is not a procedure" x))
-      x)))
+(define-syntax run-pass
+  (syntax-rules ()
+    [(_ check input input-wrapper output-wrapper pass)
+     (let ([inv input])
+       (let ([output (pass inv)])
+         (when (enum-set-member? 'pass check)
+           (let ([input-res (input-wrapper inv)]
+                 [output-res (output-wrapper output)])
+             (verify-against inv input-res output output-res pass)))
+         output))]))
 
-(define suppress-language-definition (make-parameter #f))
+(define-syntax run-emit-pass
+  (syntax-rules ()
+    [(_ check input input-wrapper output-wrapper assemble pass)
+     (let ([inv input])
+       (let ([output (assemble (lambda () (pass inv)))])
+         (when (enum-set-member? 'pass check)
+           (let ([input-res (input-wrapper inv)]
+                 [output-res (output-wrapper output)])
+             (verify-against inv input-res output output-res pass))))
+       (void))]))
 
-(define tracer-print
-  (lambda (x)
+(define-syntax run-iterated-pass
+  (syntax-rules (iterate break/when)
+    [(_ check input input-wrapper specs ...)
+     (call-with-current-continuation
+       (lambda (k)
+         (let loop ([x input])
+           (loop
+             (compose-passes check k (x input-wrapper)
+               specs ...)))))]))
+
+(define-syntax define-compiler-enumeration
+  (syntax-rules (iterate % break/when)
+    [(_ % name all (passes ...))
+     (begin
+       (define-enumeration contains (passes ...) name)
+       (define all (make-enumeration '(passes ...))))]
+    [(_ % name all (passes ...) (iterate spec1 spec2 ...) rest ...)
+     (define-compiler-enumeration % name all (passes ...)
+       spec1 spec2 ... rest ...)]
+    [(_ % name all (passes ...) (break/when foo ...) rest ...)
+     (define-compiler-enumeration % name all (passes ...)
+       rest ...)]
+    [(_ % name all (passes ...) (pass foo ...) rest ...)
+     (define-compiler-enumeration % name all (passes ... pass)
+       rest ...)]
+    [(_ name all spec1 spec2 ...)
+     (define-compiler-enumeration % name all () spec1 spec2 ...)]))
+
+(define-syntax define-compiler
+  (syntax-rules ()
+    [(_ (name name-passes source-wrapper) spec1 spec2 ...)
+     (verify-pass-specifications #'(spec1 spec2 ...))
+     (begin
+       (define-compiler-enumeration name-passes all spec1 spec2 ...)
+       (define (name input . maybe-opts)
+         (let ([passes-to-check
+                 (if (null? maybe-opts)
+                     all
+                     (car maybe-opts))])
+           (compose-passes passes-to-check #f (input source-wrapper)
+             spec1 spec2 ...))))]))
+
+(define-syntax (iterate x)
+  (syntax-violation #f "misplaced aux keyword" x))
+(define-syntax (break/when x)
+  (syntax-violation #f "misplaced aux keyword" x))
+
+(trace-define (verify-against inv input-res output output-res pass)
+  (define (stringify x)
+    (if (string? x)
+        x
+        (with-output-to-string (lambda () (write x)))))
+  (unless (string=? (stringify input-res) (stringify output-res))
+    (raise
+      (condition
+        (make-error)
+        (make-format-condition)
+        (make-irritants-condition (list pass))
+        (make-pass-verification-violation
+          pass inv output input-res output-res)
+        (make-message-condition "~a failed verification")))))
+
+(define display-pass-verification-violation
+  (case-lambda
+    [(condition) (%dpvv condition (current-output-port))]
+    [(condition oport) (%dpvv condition oport)]))
+
+(define (%dpvv c p)
+  (assert (pass-verification-violation? c))
+  (assert (output-port? p))
+  (assert (textual-port? p))
+  (format p
+    "Verification of pass ~a failed.~n"
+    (pass-verification-violation-pass c))
+  (format p "~8,8tInput Pass:~n")
+  (parameterize ([pretty-initial-indent 0])
     (pretty-print
-      (if (suppress-language-definition)
-          (match x
-            [(let () ,ld ,x) `(let () <lang-defn> ,x)]
-            [(let () ,ld ,gd ,x) `(let () <lang-defn> ,gd ,x)]
-            [,x x])
-          x))))
-
-(define tracer
-  (let ([trace-list '()])
-    (case-lambda
-      [() trace-list]
-      [(x)
-       (set! trace-list
-         (cond
-           [(eq? x #t) (all-pass-names)]
-           [(eq? x #f) '()]
-           [(and (symbol? x) (memq x (all-pass-names))) (list x)]
-           [(and (list? x) (andmap (lambda (x) (memq x (all-pass-names))) x)) x]
-           [else (error 'tracer "invalid argument ~s" x)]))])))
-
-(define timed-passes
-  (make-parameter
-    '()
-    (lambda (x)
-      (cond
-        [(eq? x #t) (all-pass-names)]
-        [(eq? x #f) '()]
-        [(and (list? x) (andmap (lambda (x) (memq x (all-pass-names))) x)) x]
-        [else (error 'timed-passes "invalid pass names ~s"
-                (if (list? x) (difference x (all-pass-names)) x))]))))
-
-(define trusted-passes
-  (make-parameter
-    '()
-    (lambda (x)
-      (cond
-        [(eq? x #t) (all-pass-names)]
-        [(eq? x #f) '()]
-        [(and (list? x) (andmap (lambda (x) (memq x (all-pass-names))) x)) x]
-        [else (error 'trusted-passes "invalid pass names ~s"
-                (if (list? x) (difference x (all-pass-names)) x))]))))
-
-(define check-final-output-only (make-parameter #f))
-
-(define game-eval
-  (make-parameter interpret
-    (lambda (x)
-      (unless (procedure? x)
-        (error 'game-eval "~s is not a procedure" x))
-      x)))
-
-(define starting-pass
-  (make-parameter #f
-    (lambda (p)
-      (unless (or (not p) (memq p (all-pass-names)))
-        (error 'starting-pass "unrecognized pass ~s" p))
+      (pass-verification-violation-input c)
+      p))
+  (format p "~8,8tPass Output:~n")
+  (parameterize ([pretty-initial-indent 0])
+    (pretty-print
+      (pass-verification-violation-output c)
       p)))
 
-(define analyze-all
-  (case-lambda
-    [() (analyze-all #t)]
-    [(emit?)
-     (let-values ([(passed total) ($analyze emit? #t)])
-       (printf "~%~s of ~s tests passed~%" passed total))]))
-
-(define $analyze
-  (lambda (emit? echo?)
-    (define mod 72)
-    (let f ([tests (valid-tests)] [n 0] [passed 0] [m mod])
-      (if (null? tests)
-          (values passed n)
-          (begin
-            (if (call/cc
-                  (lambda (k)
-                    (parameterize ([reset-handler (lambda () (k #f))])
-                      ($test-one (car tests) emit? #f n)
-                      #t)))
-                (begin
-                  (when echo?
-                    (when (= m mod) (newline))
-                    (write-char #\.)
-                    (flush-output-port))
-                  (f (cdr tests) (+ n 1) (+ passed 1) (+ (modulo m mod) 1)))
-                (f (cdr tests) (+ n 1) passed mod)))))))
-
-(define test-all
-  (case-lambda
-    [() (test-all #t #t)]
-    [(emit?) (test-all emit? #t)]
-    [(emit? verbose?)
-     (let f ([tests (valid-tests)] [n 0])
-       (unless (null? tests)
-         (when verbose?
-           (let ([s (format "~s: " n)])
-             (display s)
-             (parameterize ([pretty-initial-indent (string-length s)])
-               (pretty-print (car tests)))))
-         ($test-one (car tests) emit? verbose? n)
-         (f (cdr tests) (+ n 1))))]))
-
-(define print-file
-  (lambda (path)
-    (with-input-from-file path
-      (rec f
-        (lambda ()
-          (unless (eof-object? (peek-char))
-            (write-char (read-char))
-            (f)))))))
-
-(define *last-input-expr*)
-
-(define test-one-invalid
-  (case-lambda
-    [(expr) ($test-one-invalid expr #t #f)]
-    [(expr verbose?) ($test-one-invalid expr verbose? #f)]))
-
-(define test-last-invalid
-  (case-lambda
-    [() ($test-one-invalid *last-input-expr* #t #f)]
-    [(verbose?) ($test-one-invalid *last-input-expr* verbose? #f)]))
-
-(define test-all-invalid
-  (case-lambda
-    [() (test-all-invalid #t)]
-    [(verbose?)
-     (let f ([tests (invalid-tests)] [n 0])
-       (unless (null? tests)
-         (when verbose?
-           (let ([s (format "~s: " n)])
-             (display s)
-             (parameterize ([pretty-initial-indent (string-length s)])
-               (pretty-print (car tests)))))
-         ($test-one-invalid (car tests) verbose? n)
-         (f (cdr tests) (+ n 1))))]))
-
-(define $test-one-invalid
-  (lambda (expr verbose? ordinal)
-    (let ([verifier (car (compiler-passes))])
-      (set! *last-input-expr* expr)
-      ((call/cc
-         (lambda (k)
-           (parameterize ([base-exception-handler
-                           (lambda (who msg . args)
-                             (parameterize ([print-level 3] [print-length 6])
-                               (k (lambda ()
-                                    (printf "~@[~a~]: ~?.\n"
-                                      (and who (not (eqv? who "")) who)
-                                      msg args)))))])
-             ((eval verifier) expr)
-             (lambda ()
-               (if ordinal
-                   (error #f "no error from ~s on test ~s" verifier ordinal)
-                   (error #f "no error from ~s" verifier))))))))))
-
-(define test-one
-  (case-lambda
-    [(expr) ($test-one expr #t #t #f)]
-    [(expr emit?) ($test-one expr emit? #t #f)]
-    [(expr emit? verbose?) ($test-one expr emit? verbose? #f)]))
-
-(define test-last
-  (case-lambda
-    [() ($test-one *last-input-expr* #t #t #f)]
-    [(emit?) ($test-one *last-input-expr* emit? #t #f)]
-    [(emit? verbose?) ($test-one *last-input-expr* emit? verbose? #f)]))
-
-;; Unfortunately, this has not been revised for R6RS
-#;
-(define fmt
-  (lambda (x n)
-    (define digit
-      (lambda (d)
-        (string-ref "000123456789" (+ d 2))))
-    (let ([x (exact->inexact x)])
-      (let ([ls (#%\#flonum->digits x 10 'absolute (- n))])
-        (let ([s (car ls)] [e (cadr ls)] [digits (cddr ls)])
-          (let ([p (open-output-string)])
-            (when (= s -1) (write-char #\- p))
-            (when (< e 0) (write-char #\0 p))
-            (when (< e -1)
-              (write-char #\. p)
-              (display (make-string (min n (- -1 e)) #\0) p))
-            (let f ([digits digits] [e e])
-              (when (>= e (- n))
-                (when (= e -1) (write-char #\. p))
-                (write-char (digit (car digits)) p)
-                (f (cdr digits) (- e 1))))
-            (get-output-string p)))))))
-
-(define-syntax time-it
-  (syntax-rules ()
-    [(_ e1 e2 ...)
-     (let ([before (statistics)])
-       (let ([v (begin e1 e2 ...)])
-         (let ([elapsed (sstats-difference (statistics) before)])
-           (values
-             v
-             (format "~asec, ~amb (inexact)"
-               (/ (sstats-cpu elapsed) 1000)
-               (/ (sstats-bytes elapsed) (expt 2 20)))))))]))
-
-(define $test-one
-  (lambda (original-input-expr emit? verbose? ordinal)
-   ; caution: this doesn't stop error from happening, just allows
-   ; something to be done on the way down
-    (define-syntax on-error
-      (syntax-rules ()
-        [(_ e0 e1 e2 ...)
-         (parameterize ([base-exception-handler
-                         (let ([eh (base-exception-handler)])
-                           (lambda args
-                             (parameterize ([current-output-port
-                                             (console-output-port)])
-                               e0)
-                             (apply eh args)))])
-           e1 e2 ...)]))
-    (define (eval-it pass-name x)
-      (reset-machine-state!)
-      ((game-eval) ((language-wrapper) pass-name x)))
-    (define adjust-unc!
-      (lambda (x)
-        (unique-name-count
-          (let f ([x x])
-            (cond
-              [(and (symbol? x) (extract-suffix x)) => string->number]
-              [(pair? x) (max (f (car x)) (f (cdr x)))]
-              [(vector? x) (f (vector->list x))]
-              [else 0])))))
-
-    (adjust-unc! original-input-expr)
-    (set! *last-input-expr* original-input-expr)
-    (let ([answer (delay (eval-it 'source original-input-expr))])
-      (define check-eval
-        (lambda (pass-name input-expr output-expr)
-          (on-error
-            (when verbose?
-              (unless (eq? input-expr output-expr)
-                (printf "~%~s input:~%" pass-name)
-                (pretty-print input-expr))
-              (printf "========~%~s output:~%" pass-name)
-              (pretty-print output-expr))
-            (let ([t (parameterize ([run-cp0 (lambda (cp0 x) x)])
-                       (on-error
-                         (if ordinal
-                             (printf "~%Error occurred running output of pass ~s on test ~s"
-                               pass-name ordinal)
-                             (printf "~%Error occurred running output of pass ~s" pass-name))
-                         (eval-it pass-name output-expr)))])
-              (unless (equal? t (force answer))
-                (if ordinal
-                    (error #f
-                      "evaluating output of ~s for test ~s produces ~s, should have been ~s"
-                      pass-name ordinal t (force answer))
-                    (error #f
-                      "evaluating output of ~s produces ~s, should have been ~s"
-                      pass-name t (force answer))))))))
-      (define check-build-eval
-        (lambda (pass-name input-expr output-string)
-          (on-error
-            (begin
-              (if ordinal
-                  (printf "~%Error occurred while running code generated by ~s for test ~s~%"
-                    pass-name ordinal)
-                  (printf "~%Error occurred while running code generated by ~s~%"
-                    pass-name))
-              (when verbose?
-                (printf "~s input:~%" pass-name)
-                (pretty-print input-expr)
-                (printf "========~%~s output:~%" pass-name)
-                (display-string output-string)))
-            (let ([t (build-and-run input-expr output-string)])
-              (unless (equal? t (force answer))
-                (if ordinal
-                    (error #f
-                      "evaluating output of ~s for test ~s produces ~s, should have been ~s"
-                      pass-name ordinal t (force answer))
-                    (error #f
-                      "evaluating output of ~s produces ~s, should have been ~s"
-                      pass-name t (force answer))))))))
-      (define run-pass
-        (lambda (input-expr pass-name)
-          (when (memq pass-name (tracer)) (printf "~%~s:~%" pass-name))
-          (let ([pass (eval pass-name)])
-            (case pass-name
-              [(generate-x86-64)
-               (let ([output-string
-                      (on-error
-                        (begin
-                          (if ordinal
-                              (printf "~%Error occurred within pass ~s on test ~s" pass-name ordinal)
-                              (printf "~%Error occurred within pass ~s" pass-name))
-                          (when verbose?
-                            (printf "~%~s input:~%" pass-name)
-                            (pretty-print input-expr)))
-                        (if (memq pass-name (timed-passes))
-                            (begin
-                              (printf "~s: " pass-name)
-                              (flush-output-port)
-                              (let-values ([(v t) (time-it
-                                                    (with-output-to-string
-                                                      (lambda ()
-                                                        (pass input-expr))))])
-                                (printf "~a\n" t)
-                                v))
-                            (with-output-to-string
-                              (lambda ()
-                                (pass input-expr)))))])
-                 (when emit? (check-build-eval pass-name input-expr output-string))
-                 (when (memq pass-name (tracer)) (display-string output-string))
-                 input-expr)]
-              [else
-               (let ([output-expr
-                      (on-error
-                        (begin
-                          (if ordinal
-                              (printf "~%Error occurred within pass ~s on test ~s" pass-name ordinal)
-                              (printf "~%Error occurred within pass ~s" pass-name))
-                          (when verbose?
-                            (printf "~%~s input:~%" pass-name)
-                            (pretty-print input-expr)))
-                        (if (memq pass-name (timed-passes))
-                            (begin
-                              (printf "~s: " pass-name)
-                              (flush-output-port)
-                              (let-values ([(v t) (time-it (pass input-expr))])
-                                (printf "~a\n" t)
-                                v))
-                            (pass input-expr)))])
-                 (unless (or (check-final-output-only)
-                             (memq pass-name (trusted-passes)))
-                   (check-eval pass-name input-expr output-expr))
-                 (when (memq pass-name (tracer))
-                   (tracer-print output-expr))
-                 output-expr)]))))
-      (define run
-        (lambda (input-expr passes)
-          (define exit
-            (lambda (input-expr sp)
-              (if sp
-                  (error 'driver "starting pass ~s not found" sp)
-                  (when (check-final-output-only)
-                    (check-eval 'final-output input-expr input-expr)))))
-          (let run ([input-expr input-expr]
-                    [passes passes]
-                    [sp (starting-pass)]
-                    [continue exit]
-                    [break exit])
-            (if (null? passes)
-                (continue input-expr sp)
-                (match (car passes)
-                  [(break when ,pred)
-                   (if (and (not sp) ((eval pred) input-expr))
-                       (break input-expr sp)
-                       (run input-expr (cdr passes) sp continue break))]
-                  [(break unless ,pred)
-                   (if (and (not sp) (not ((eval pred) input-expr)))
-                       (break input-expr sp)
-                       (run input-expr (cdr passes) sp continue break))]
-                  [(iterate ,ipass* ...)
-                   (let next-iter ([input-expr input-expr] [sp sp])
-                     (run input-expr
-                          ipass*
-                          sp
-                          (lambda (input-expr sp)
-                            (if sp
-                                (run input-expr (cdr passes) sp continue break)
-                                (next-iter input-expr sp)))
-                          (lambda (input-expr sp)
-                            (run input-expr (cdr passes) sp continue break))))]
-                  [,pass-name
-                   (guard (symbol? pass-name))
-                   (if (or (not sp) (eq? pass-name sp))
-                       (run (run-pass input-expr pass-name) (cdr passes) #f continue break)
-                       (begin
-                         (when (eq? pass-name 'rename-var) (adjust-unc! input-expr))
-                         (run input-expr (cdr passes) sp continue break)))])))))
-      (if (equal? (timed-passes) (all-pass-names))
-          (let-values ([(v t) (time-it (run original-input-expr (compiler-passes)))])
-            (printf "overall: ~a\n" t)
-            v)
-            (run original-input-expr (compiler-passes))))))
 )
