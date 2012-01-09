@@ -22,7 +22,7 @@
 ;; PERFORMANCE OF THIS SOFTWARE.
 ;; }
 
-;; Adapated for P423 Spring 2012 by Claire Alvis
+;; Adapated for P423 Spring 2012 by Claire Alvis and Chris Frisz
 
 (library (framework testing)
   (export
@@ -63,24 +63,29 @@
   (begin
     (reset-test-runner)
     (print-group-heading)
-    (for-each (test-one compile) suite)
-    (print-finalization)))
+    (let loop ((suite suite) (test-num 0))
+      (if (null? suite)
+          (print-finalization runner)
+          (begin
+            ((test-one compile runner) (car suite) test-num)
+            (loop (cdr suite) (add1 test-num))))))))
 
-(define (test-one compile)
-  (lambda (input)
+(define (test-one compile runner)
+  (lambda (input test-num)
     (let ((r (guard
-               (x [else (process-result x)])
+               (x [else (process-result x runner test-num)])
                (compile input))))
-      (process-result r))))
+      (process-result r runner test-num))))
 
 (define (test-number num)
-  ((test-one p423-compile) (list-ref (valid-tests) num)))
+  ((test-one p423-compile (test-runner-current))
+   (list-ref (valid-tests) num) num))
 
-(define (process-result x)
+(define (process-result x runner test-num)
   (begin
-    (set-test-runner-previous-result! (test-runner-current) x)
-    (print-individual-completion)
-    (record-test-result! (test-runner-current))))
+    (set-test-runner-previous-result! runner x)
+    (print-individual-completion runner test-num)
+    (record-test-result! runner test-num)))
 
 (define (print-group-heading)
   (printf "Test~8,8tResult~16,8tReason~n")
@@ -95,12 +100,11 @@
 ;;    2    Fail    Pass: PASS-NAME
 ;;    3    Fail    Runtime error
 ;; ...
-(define (print-individual-completion)
-  (let ((runner (test-runner-current)))
-    (printf "~4d~8,8t~:[Fail~;Pass~]~16,8t~a~n"
-      (current-test-number)
-      (test-passed? runner)
-      (short-error runner))))
+(define (print-individual-completion runner test-num)
+  (printf "~4d~8,8t~:[Fail~;Pass~]~16,8t~a~n"
+    test-num
+    (test-passed? runner)
+    (short-error runner)))
 
 (define (short-error runner)
   (let ((pr (test-runner-previous-result runner)))
@@ -123,13 +127,9 @@
       (printf "~a~n" (make-string 15 #\-))
       (printf "Passes:~16,8t~4d~n" passed)
       (printf "Failures:~16,8t~4d~n" failed)
-      (printf "Total:~16,8t~4d~n" (+ passed failed)))))
+      (printf "Total:~16,8t~4d~n" (+ passed failed))))
 
-(define (current-test-number)
-  (let ((runner (test-runner-current)))
-    (+ (test-runner-passed runner) (test-runner-failed runner))))
-
-(define (record-test-result! runner)
+(define (record-test-result! runner test-num)
   (let ((pr (test-runner-previous-result runner)))
     (cond
       ((and (not (test-passed? runner))
@@ -137,7 +137,7 @@
                 (error? pr)))
        (set-test-runner-test-history! runner
          (cons
-           (cons (current-test-number) pr)
+           (cons test-num pr)
            (test-runner-test-history runner)))
        (set-test-runner-failed! runner
          (+ (test-runner-failed runner) 1)))
