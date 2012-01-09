@@ -119,9 +119,8 @@
 ;; Passes:         105
 ;; Failures:        25
 ;; Total:          200
-(define (print-finalization)
-  (let ((runner (test-runner-current)))
-    (let ((passed (test-runner-passed runner))
+(define (print-finalization runner)
+  (let ((passed (test-runner-passed runner))
           (failed (test-runner-failed runner)))
       (printf "~nTesting Summary~n")
       (printf "~a~n" (make-string 15 #\-))
@@ -146,7 +145,7 @@
           (+ (test-runner-passed runner) 1))))))
 
 (define (display-test-failure test-num)
-  (let ([res (test-failure-condition test-num)])
+  (let ([res (test-failure-condition (test-runner-current) test-num)])
     (when res
       (cond
         [(pass-verification-violation? res)
@@ -158,10 +157,8 @@
         [else (display-condition res)])
       (newline))))
 
-(define (test-failure-condition num)
-  (let ([res (assv num
-               (test-runner-test-history
-                 (test-runner-current)))])
+(define (test-failure-condition runner num)
+  (let ([res (assv num (test-runner-test-history runner))])
     (and res (cdr res))))
 
 )
