@@ -1,8 +1,5 @@
 (library (framework wrappers)
-  (export
-    generate-x86-64/wrapper
-    source/wrapper
-    verify-scheme/wrapper)
+  (export pass->wrapper source/wrapper verify-scheme/wrapper generate-x86-64/wrapper)
   (import
     (chezscheme)
     (framework helpers)
@@ -12,6 +9,12 @@
   (environment
     '(chezscheme)
     '(framework helpers)))
+
+(define pass->wrapper
+  (lambda (pass)
+    (case pass
+      ((source) source/wrapper)
+      ((verify-scheme) verify-scheme/wrapper))))
 
 (define-language-wrapper
   (source/wrapper verify-scheme/wrapper)
