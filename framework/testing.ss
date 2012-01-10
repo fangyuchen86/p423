@@ -108,15 +108,15 @@
 (define (refine-test-suite . num)
   (let* ((suite (test-suite))
          (max-index (- (length suite) 1)))
-    (begin
-      (let ((new-suite
-              (map
-                (lambda (n)
-                  (unless (<= 0 n max-index)
-                    (errorf 'refine-test-suite
-                      "Number ~s not a valid test index" n))
-                  (list-ref suite n))
-                num)))
+    (let ((new-suite
+            (map
+              (lambda (n)
+                (unless (<= 0 n max-index)
+                  (errorf 'refine-test-suite
+                    "Number ~s not a valid test index" n))
+                (list-ref suite n))
+              num)))
+      (begin
         (test-suite new-suite)
         (reset-test-runner)))))
 
