@@ -50,7 +50,7 @@ TODO
   "./t")
 
 ;; Defines the compiler
-(define-compiler (p423-compile p423-compile-passes)
+(define-compiler (p423-compile p423-compile-passes pass->wrapper)
   (verify-scheme)
   (generate-x86-64 assemble))
 
