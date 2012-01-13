@@ -8,7 +8,7 @@
 ;; 2012/1/11
 
 (library (compiler compile)
-         (export p423-compile p423-compile-passes)
+  (export p423-compile p423-compile-passes)
   (import 
     ;; Load Chez Scheme primitives:
     (chezscheme)
