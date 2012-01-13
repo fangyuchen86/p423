@@ -134,7 +134,7 @@
 (define (test-invalid)
   (begin
     (test-suite (invalid-tests))
-    (test-valid #f)
+    (testing-valid #f)
     (run-tests)))
 
 (define (test-all)
