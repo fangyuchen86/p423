@@ -10,7 +10,7 @@ TODO
  * In this assignment you will populate the ./compiler/ directory with
    one or more source files.
 
- * At least one of those source files must be ./compiler/compiler.ss.
+ * At least one of those source files must be ./compiler/compile.ss.
    This is the main entry point into your compiler and must satisfy
    certain constraints for us to be able to execute your compiler.
 
@@ -37,7 +37,7 @@ TODO
     (framework helpers)
     ;; Load your passes from the file you wrote them in. 
     ;; If that file is called passes.ss, it would be
-    (compiler passes)))
+    (compiler passes))
 
 ;; Given a thunk that generates assembly code, this will compile the 
 ;; resulting assembly code and output it to a file named t.s
