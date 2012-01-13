@@ -174,7 +174,7 @@
           (begin
             (if (testing-valid)
                 (print-individual-completion pr runner)
-                (print-individual-compiletion-invalid pr runner))
+                (print-individual-completion-invalid pr runner))
             (record-test-result pr runner)))
         (error 'test-one "Invalid compiler"))))
 
