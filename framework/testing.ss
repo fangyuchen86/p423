@@ -105,6 +105,11 @@
 (define test-suite (make-parameter '()))
 (define test-compiler (make-parameter p423-compile))
 
+;; Hacking this in to give logical output for invalid tests
+(define testing-valid
+  (make-parameter #t
+    (lambda (x) (and (boolean? x) x))))
+
 (define (refine-test-suite . num)
   (let* ((suite (test-suite))
          (max-index (- (length suite) 1)))
@@ -121,10 +126,16 @@
         (reset-test-runner)))))
 
 (define (test-valid)
-  (begin (test-suite (valid-tests)) (run-tests)))
+  (begin
+    (test-suite (valid-tests))
+    (testing-valid #t)
+    (run-tests)))
 
 (define (test-invalid)
-  (begin (test-suite (invalid-tests)) (run-tests)))
+  (begin
+    (test-suite (invalid-tests))
+    (test-valid #f)
+    (run-tests)))
 
 (define (test-all)
   (begin
@@ -158,10 +169,14 @@
 ;; just call the current compiler on that program.
 (define (test-one compiler runner)
   (lambda (input)
-    (let ((pr (guard (x [else x]) (compiler input))))
-      (begin
-        (print-individual-completion pr runner)
-        (record-test-result pr runner)))))
+    (if (procedure? compiler)
+        (let ((pr (guard (x [else x]) (compiler input))))
+          (begin
+            (if (testing-valid)
+                (print-individual-completion pr runner)
+                (print-individual-compiletion-invalid pr runner))
+            (record-test-result pr runner)))
+        (error 'test-one "Invalid compiler"))))
 
 (define (print-group-heading)
   (printf "Test~8,8tResult~16,8tReason~n")
@@ -180,6 +195,13 @@
     (+ (test-runner-passed runner)
       (test-runner-failed runner))
     (test-passed? pr)
+    (result->string pr)))
+
+(define (print-individual-completion-invalid pr runner)
+  (printf "~4d~8,8t~:[Unexpected pass~;Expected failure~]~16,8t~a~n"
+    (+ (test-runner-passed runner)
+      (test-runner-failed runner))
+    (error? pr)
     (result->string pr)))
 
 (define (result->string pr)
