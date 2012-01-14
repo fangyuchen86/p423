@@ -861,7 +861,7 @@
   (syntax-rules ()
     [(_ code code* ...)
      (begin
-;;       (emit '.globl "_scheme_entry")
+       (emit '.globl "_scheme_entry")
        (emit-label "_scheme_entry")
        (emit 'pushq 'rbx)
        (emit 'pushq 'rbp)
