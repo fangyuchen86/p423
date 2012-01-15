@@ -14,6 +14,16 @@
 ;; PERFORMANCE OF THIS SOFTWARE.
 ;; }
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Adapted for P423 Spring 2012 by Claire Alvis
+;;
+;; These drivers allow you to define compilers and wrappers.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; 
+
 #!chezscheme
 (library
   (framework driver aux)
@@ -106,7 +116,8 @@
   (framework driver)
   (export
     trace
-    iterate break/when
+    iterate
+    break/when
     environment
     &wrapper-violation
     make-wrapper-violation
@@ -249,19 +260,75 @@
     [(_ name all spec1 spec2 ...)
      (define-compiler-enumeration % name all () spec1 spec2 ...)]))
 
-(define-syntax define-compiler
+(define-syntax define-compiler-aux
   (syntax-rules ()
-    [(_ (name name-passes source-wrapper) spec1 spec2 ...)
+    ((_ (bindings ...) (name name-passes source-wrapper) spec1 spec2 ...)
      (verify-pass-specifications #'(spec1 spec2 ...))
      (begin
        (define-compiler-enumeration name-passes all spec1 spec2 ...)
        (define (name input . maybe-opts)
          (let ([passes-to-check
-                 (if (null? maybe-opts)
-                     all
-                     (car maybe-opts))])
-           (compose-passes passes-to-check #f (input source-wrapper)
-             spec1 spec2 ...))))]))
+                 (if (null? maybe-opts) all (car maybe-opts))]
+               bindings ...)
+           (compose-passes passes-to-check #f (input source-wrapper) spec1 spec2 ...)))))))
+
+(define-syntax rewrite-specs
+  (syntax-rules (iterate trace break/when %)
+    [(_ name name-passes wp (specs ...) (bindings ...))
+     (define-compiler-aux ((sw (wp 'source)) bindings ...) (name name-passes sw) specs ...)]
+    
+    [(_ name name-passes wp (ispecs ... (specs ...)) (bindings ...) % rest ...)
+     (rewrite-specs name name-passes wp
+       ((iterate ispecs ...) specs ...)
+       (bindings ...)
+       rest ...)]
+    
+    [(_ name name-passes wp (specs ...) (bindings ...) (iterate spec1 spec2 ...) rest ...)
+     (rewrite-specs name name-passes wp
+       ((specs ...))
+       (bindings ...)
+       spec1 spec2 ... % rest ...)]
+    
+    [(_ name name-passes wp (specs ...) (bindings ...) (trace pass foo ...) rest ...)
+     (rewrite-specs name name-passes wp
+       (specs ... (trace pass w foo ...))
+       (bindings ... (w (wp 'pass)))
+       rest ...)]
+    
+    [(_ name name-passes wp (specs ...) (bindings ...) (break/when foo ...) rest ...)
+     (rewrite-specs name name-passes wp
+       ((break/when foo ...) specs ...)
+       (bindings ...)
+       rest ...)]
+    
+    [(_ name name-passes wp (specs ...) (bindings ...) (pass foo ...) rest ...)
+     (rewrite-specs name name-passes wp
+       (specs ... (pass w foo ...))
+       (bindings ... (w (wp 'pass)))
+       rest ...)]))
+
+(define-syntax define-compiler
+  (syntax-rules ()
+    ((_ (name name-passes wrapper-proc) spec1 spec2 ...)
+     (rewrite-specs name name-passes wrapper-proc () () spec1 spec2 ...))))
+
+(define-syntax add-wrappers
+  (syntax-rules (iterate % break/when)
+    [(_ % name all (passes ...))
+     (begin
+       (define-enumeration contains (passes ...) name)
+       (define all (make-enumeration '(passes ...))))]
+    [(_ % name all (passes ...) (iterate spec1 spec2 ...) rest ...)
+     (define-compiler-enumeration % name all (passes ...)
+       spec1 spec2 ... rest ...)]
+    [(_ % name all (passes ...) (break/when foo ...) rest ...)
+     (define-compiler-enumeration % name all (passes ...)
+       rest ...)]
+    [(_ % name all (passes ...) (pass foo ...) rest ...)
+     (define-compiler-enumeration % name all (passes ... pass)
+       rest ...)]
+    [(_ name all spec1 spec2 ...)
+     (define-compiler-enumeration % name all () spec1 spec2 ...)]))
 
 (define-syntax (iterate x)
   (syntax-violation #f "misplaced aux keyword" x))

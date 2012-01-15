@@ -27,8 +27,7 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; To run tests:
-;;
+;; To run a test suite:
 ;; (test-valid)    runs all the valid tests
 ;; (test-invalid)  runs all the invalid tests
 ;; (test-all)      runs all the tests
@@ -100,10 +99,26 @@
   (current-test-runner (fresh-test-runner)))
 (define current-test-runner
   (make-parameter (fresh-test-runner)
-    (lambda (x) (and (test-runner? x) x))))
+    (lambda (x)
+      (unless (test-runner? x)
+        (errorf 'current-test-runner
+          "~s is not a valid test-runner" x))
+      x)))
 
-(define test-suite (make-parameter '()))
-(define test-compiler (make-parameter p423-compile))
+(define test-suite
+  (make-parameter '()
+    (lambda (x)
+      (unless (list? x)
+        (errorf 'test-suite
+          "~s is not a valid test suite" x))
+      x)))
+(define test-compiler
+  (make-parameter p423-compile
+    (lambda (x)
+      (unless (procedure? x)
+        (errorf 'test-compiler
+          "~s is not a valid compiler" x))
+      x)))
 
 ;; Mutable boolean flag that controls whether the framework is
 ;; currently running known-invalid tests.
@@ -112,23 +127,27 @@
 (define (refine-test-suite . num)
   (let* ((suite (test-suite))
          (max-index (- (length suite) 1)))
-    (begin
-      (let ((new-suite
-              (map
-                (lambda (n)
-                  (unless (<= 0 n max-index)
-                    (errorf 'refine-test-suite
-                      "Number ~s not a valid test index" n))
-                  (list-ref suite n))
-                num)))
+    (let ((new-suite
+            (map
+              (lambda (n)
+                (unless (<= 0 n max-index)
+                  (errorf 'refine-test-suite
+                    "Number ~s not a valid test index" n))
+                (list-ref suite n))
+              num)))
+      (begin
         (test-suite new-suite)
         (reset-test-runner)))))
 
 (define (test-valid)
-  (begin (test-suite (valid-tests)) (run-tests)))
+  (begin
+    (test-suite (valid-tests))
+    (run-tests)))
 
 (define (test-invalid)
-  (begin (test-suite (invalid-tests)) (run-tests)))
+  (begin
+    (test-suite (invalid-tests))
+    (run-tests)))
 
 (define (test-all)
   (begin
@@ -139,12 +158,14 @@
         (test-suite (valid-tests))
         (printf "Testing (valid-tests)\n")
         (print-group-heading)
-        (map (test-one compiler runner) (test-suite))
+        (for-each (test-one compiler runner) (test-suite))
         (printf "\nTesting (invalid-tests)\n")
         (print-group-heading)
         (test-suite (invalid-tests))
-        (map (test-one compiler runner) (test-suite))
-        (print-finalization runner)))))
+        (for-each (test-one compiler runner) (test-suite))
+        (print-finalization runner)
+        (test-suite
+          (append (valid-tests) (invalid-tests)))))))
 
 (define (run-tests)
   (begin
@@ -154,7 +175,7 @@
           (runner (current-test-runner))
           (suite (test-suite)))
       (begin
-        (map (test-one compiler runner) suite)
+        (for-each (test-one compiler runner) suite)
         (print-finalization runner)))))
 
 ;; This prints out the information for a single test.
@@ -168,7 +189,7 @@
         (record-test-result pr runner)))))
 
 (define (print-group-heading)
-  (printf "Test~8,8tResult~16,8tReason~n")
+  (printf "Test~8,8tResult\n")
   (printf "---------------------------~n"))
 
 (define (test-passed? pr)
@@ -180,20 +201,22 @@
 ;;    3    Fail    Runtime error
 ;; ...
 (define (print-individual-completion pr runner)
-  (printf "~4d~8,8t~:[Fail~;Pass~]~16,8t~a~n"
-    (+ (test-runner-passed runner)
-       (test-runner-failed-expected   runner)
-       (test-runner-failed-unexpected runner))
-    (test-passed? pr)
+  (apply printf "~4d    ~8a~a~n"
+    (current-test-number runner)
     (result->string pr)))
 
 (define (result->string pr)
   (cond
-    [(wrapper-violation? pr) "Wrapper violation"]
-    [(error? pr) "Runtime error"]
+    [(wrapper-violation? pr)
+     (list "Fail" "Wrapper violation")]
     [(pass-verification-violation? pr)
-     "Pass verification error"]
-    [else ""]))
+     (list "Fail"
+       (format "~a: ~s"
+         "Verification error"
+         (pass-verification-violation-pass pr)))]
+    [(error? pr)
+     (list "Fail" "Runtime error")]
+    [else (list "Pass" "")]))
 
 ;; Testing Summary
 ;; ---------------

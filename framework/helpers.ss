@@ -257,6 +257,13 @@
 (define-syntax define-who
   (lambda (x)
     (syntax-case x ()
+      [(k (name args ...) defn ... expr)
+       (with-syntax ([who (datum->syntax-object #'k 'who)])
+         #'(define name
+             (let ([who 'name])
+               (lambda (args ...)
+                 defn ...
+                 expr))))]
       [(k name defn ... expr)
        (with-syntax ([who (datum->syntax-object #'k 'who)])
          #'(define name
@@ -861,7 +868,7 @@
   (syntax-rules ()
     [(_ code code* ...)
      (begin
-;;       (emit '.globl "_scheme_entry")
+       (emit '.globl "_scheme_entry")
        (emit-label "_scheme_entry")
        (emit 'pushq 'rbx)
        (emit 'pushq 'rbp)
