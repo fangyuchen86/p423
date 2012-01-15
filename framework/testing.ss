@@ -106,7 +106,12 @@
       x)))
 
 (define test-suite
-  (make-parameter '()))
+  (make-parameter '()
+    (lambda (x)
+      (unless (list? x)
+        (errorf 'test-suite
+          "~s is not a valid test suite" x))
+      x)))
 (define test-compiler
   (make-parameter p423-compile
     (lambda (x)
@@ -154,7 +159,9 @@
         (print-group-heading)
         (test-suite (invalid-tests))
         (for-each (test-one compiler runner) (test-suite))
-        (print-finalization runner)))))
+        (print-finalization runner)
+        (test-suite
+          (append (valid-tests) (invalid-tests)))))))
 
 (define (run-tests)
   (begin
