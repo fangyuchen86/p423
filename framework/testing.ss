@@ -149,11 +149,11 @@
         (test-suite (valid-tests))
         (printf "Testing (valid-tests)\n")
         (print-group-heading)
-        (map (test-one compiler runner) (test-suite))
+        (for-each (test-one compiler runner) (test-suite))
         (printf "\nTesting (invalid-tests)\n")
         (print-group-heading)
         (test-suite (invalid-tests))
-        (map (test-one compiler runner) (test-suite))
+        (for-each (test-one compiler runner) (test-suite))
         (print-finalization runner)))))
 
 (define (run-tests)
@@ -164,7 +164,7 @@
           (runner (current-test-runner))
           (suite (test-suite)))
       (begin
-        (map (test-one compiler runner) suite)
+        (for-each (test-one compiler runner) suite)
         (print-finalization runner)))))
 
 ;; This prints out the information for a single test.
