@@ -94,7 +94,7 @@
 (define-record test-runner
   (passed failed-expected failed-unexpected test-history))
 (define (fresh-test-runner)
-  (make-test-runner 0 0 '()))
+  (make-test-runner 0 0 0 '()))
 (define (reset-test-runner)
   (current-test-runner (fresh-test-runner)))
 (define current-test-runner
@@ -122,6 +122,9 @@
 
 ;; Mutable boolean flag that controls whether the framework is
 ;; currently running known-invalid tests.
+;;
+;; As Claire pointed out we need to be very careful that this is ONLY
+;; true during test-all, NOT while the student is using the REPL.
 (define expect-failure (make-parameter #f))
 
 (define (refine-test-suite . num)
@@ -145,9 +148,10 @@
     (run-tests)))
 
 (define (test-invalid)
-  (begin
-    (test-suite (invalid-tests))
-    (run-tests)))
+  (parameterize ([expect-failure #t])
+    (begin
+      (test-suite (invalid-tests))
+      (run-tests))))
 
 (define (test-all)
   (begin
@@ -162,7 +166,8 @@
         (printf "\nTesting (invalid-tests)\n")
         (print-group-heading)
         (test-suite (invalid-tests))
-        (for-each (test-one compiler runner) (test-suite))
+	(parameterize ([expect-failure #t])
+	  (for-each (test-one compiler runner) (test-suite)))
         (print-finalization runner)
         (test-suite
           (append (valid-tests) (invalid-tests)))))))
@@ -229,9 +234,9 @@
 	(failed-unexpected (test-runner-failed-unexpected runner)))
     (printf "~nTesting Summary~n")
     (printf "~a~n" (make-string 15 #\-))
-    (printf "Passes:~16,8t~4d~n" passed)
-    (printf "Expected Failures:~16,8t~4d~n"   failed-expected)
-    (printf "UNEXPECTED Failures:~16,8t~4d~n" failed-unexpected)
+    (printf "Passes:              ~3d~n" passed)
+    (printf "Expected Failures:   ~3d~n" failed-expected)
+    (printf "UNEXPECTED Failures: ~3d~n" failed-unexpected)
     (printf "Total:~16,8t~4d~n" (+ passed failed-expected failed-unexpected))))
 
 (define (current-test-number runner)
@@ -254,8 +259,8 @@
             (cons (current-test-number runner) pr)
             (test-runner-test-history runner)))
         (if (expect-failure)
-	    (set-test-runner-failed! runner (+ (test-runner-failed runner) 1))
-	    (set-test-runner-failed! runner (+ (test-runner-failed runner) 1)))
+	    (set-test-runner-failed-expected!   runner (+ (test-runner-failed-expected   runner) 1))
+	    (set-test-runner-failed-unexpected! runner (+ (test-runner-failed-unexpected runner) 1)))
    ))))
 
 (define (display-test-failure test-num)
