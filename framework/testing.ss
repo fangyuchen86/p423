@@ -106,7 +106,12 @@
       x)))
 
 (define test-suite
-  (make-parameter '()))
+  (make-parameter '()
+    (lambda (x)
+      (unless (list? x)
+        (errorf 'test-suite
+          "~s is not a valid test suite" x))
+      x)))
 (define test-compiler
   (make-parameter p423-compile
     (lambda (x)
@@ -149,12 +154,14 @@
         (test-suite (valid-tests))
         (printf "Testing (valid-tests)\n")
         (print-group-heading)
-        (map (test-one compiler runner) (test-suite))
+        (for-each (test-one compiler runner) (test-suite))
         (printf "\nTesting (invalid-tests)\n")
         (print-group-heading)
         (test-suite (invalid-tests))
-        (map (test-one compiler runner) (test-suite))
-        (print-finalization runner)))))
+        (for-each (test-one compiler runner) (test-suite))
+        (print-finalization runner)
+        (test-suite
+          (append (valid-tests) (invalid-tests)))))))
 
 (define (run-tests)
   (begin
@@ -164,7 +171,7 @@
           (runner (current-test-runner))
           (suite (test-suite)))
       (begin
-        (map (test-one compiler runner) suite)
+        (for-each (test-one compiler runner) suite)
         (print-finalization runner)))))
 
 ;; This prints out the information for a single test.
