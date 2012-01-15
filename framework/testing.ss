@@ -93,7 +93,7 @@
 ;; passed/failed tests cases, the result of the previous test, and an
 ;; entire test history.
 (define-record test-runner
-  (passed failed test-history))
+  (passed failed-expected failed-unexpected test-history))
 (define (fresh-test-runner)
   (make-test-runner 0 0 '()))
 (define (reset-test-runner)
@@ -104,6 +104,10 @@
 
 (define test-suite (make-parameter '()))
 (define test-compiler (make-parameter p423-compile))
+
+;; Mutable boolean flag that controls whether the framework is
+;; currently running known-invalid tests.
+(define expect-failure (make-parameter #f))
 
 (define (refine-test-suite . num)
   (let* ((suite (test-suite))
@@ -178,7 +182,8 @@
 (define (print-individual-completion pr runner)
   (printf "~4d~8,8t~:[Fail~;Pass~]~16,8t~a~n"
     (+ (test-runner-passed runner)
-      (test-runner-failed runner))
+       (test-runner-failed-expected   runner)
+       (test-runner-failed-unexpected runner))
     (test-passed? pr)
     (result->string pr)))
 
@@ -197,20 +202,23 @@
 ;; Total:          200
 (define (print-finalization runner)
   (let ((passed (test-runner-passed runner))
-        (failed (test-runner-failed runner)))
+        (failed-expected   (test-runner-failed-expected   runner))
+	(failed-unexpected (test-runner-failed-unexpected runner)))
     (printf "~nTesting Summary~n")
     (printf "~a~n" (make-string 15 #\-))
     (printf "Passes:~16,8t~4d~n" passed)
-    (printf "Failures:~16,8t~4d~n" failed)
-    (printf "Total:~16,8t~4d~n" (+ passed failed))))
+    (printf "Expected Failures:~16,8t~4d~n"   failed-expected)
+    (printf "UNEXPECTED Failures:~16,8t~4d~n" failed-unexpected)
+    (printf "Total:~16,8t~4d~n" (+ passed failed-expected failed-unexpected))))
 
 (define (current-test-number runner)
   (+ (test-runner-passed runner)
-    (test-runner-failed runner)))
+     (test-runner-failed-unexpected runner)
+     (test-runner-failed-expected   runner)))
 
 ;; This records the result of the previous test, whether it be a pass
 ;; (just increments test-runner-passed), or failed (increments
-;; test-runner-failed and stores the error condition in the history).
+;; test-runner-failed-[un]expected and stores the error condition in the history).
 (define (record-test-result pr runner)
   (cond
     ((test-passed? pr)
@@ -222,8 +230,10 @@
           (cons
             (cons (current-test-number runner) pr)
             (test-runner-test-history runner)))
-        (set-test-runner-failed! runner
-          (+ (test-runner-failed runner) 1))))))
+        (if (expect-failure)
+	    (set-test-runner-failed! runner (+ (test-runner-failed runner) 1))
+	    (set-test-runner-failed! runner (+ (test-runner-failed runner) 1)))
+   ))))
 
 (define (display-test-failure test-num)
   (let ([res (test-failure-condition test-num)])
