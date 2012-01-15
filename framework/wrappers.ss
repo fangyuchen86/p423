@@ -14,7 +14,10 @@
   (lambda (pass)
     (case pass
       ((source) source/wrapper)
-      ((verify-scheme) verify-scheme/wrapper))))
+      ((verify-scheme) verify-scheme/wrapper)
+      ((generate-x86-64) generate-x86-64/wrapper)
+      (else (errorf 'pass->wrapper
+              "Wrapper for pass ~s not found" pass)))))
 
 (define-language-wrapper
   (source/wrapper verify-scheme/wrapper)
