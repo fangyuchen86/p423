@@ -22,7 +22,10 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;; Useful forms for students
+;;
 ;; 
+;; (iterate <arg_1> <arg_2> ... <arg_n>)
 
 #!chezscheme
 (library
