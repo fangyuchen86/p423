@@ -1,5 +1,6 @@
 (library (framework wrappers)
   (export
+    pass->wrapper
     expose-frame-var/wrapper
     flatten-program/wrapper
     generate-x86-64/wrapper
@@ -10,6 +11,11 @@
     (framework match)
     (framework helpers)
     (framework driver))
+
+(define env
+  (environment
+    '(chezscheme)
+    '(framework helpers)))
 
 (define rewrite-opnds
   (lambda (x)
@@ -30,12 +36,15 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((expose-frame-var) expose-frame-var/wrapper)
+      ((flatten-program) flatten-program/wrapper)
       ((generate-x86-64) generate-x86-64/wrapper)
       (else (errorf 'pass->wrapper
               "Wrapper for pass ~s not found" pass)))))
 
 (define-language-wrapper (source/wrapper verify-scheme/wrapper)
-    (x)
+  (x)
+  (environment env)
   (import
     (except (chezscheme) set!)
     (framework helpers))
@@ -63,7 +72,9 @@
       ,x))
   rax)
 
-(define-language-wrapper expose-frame-var/wrapper (x)
+(define-language-wrapper expose-frame-var/wrapper
+  (x)
+  (environment env)  
   (import
     (except (chezscheme) set!)
     (framework helpers))
@@ -92,7 +103,9 @@
       ,(rewrite-opnds x)))
   rax)
 
-(define-language-wrapper flatten-program/wrapper (x)
+(define-language-wrapper flatten-program/wrapper
+  (x)
+  (environment env)  
   (import
     (except (chezscheme) set!)
     (framework helpers))
