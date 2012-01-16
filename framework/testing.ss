@@ -92,9 +92,9 @@
 ;; passed/failed tests cases, the result of the previous test, and an
 ;; entire test history.
 (define-record test-runner
-  (passed failed test-history))
+  (passed failed-expected failed-unexpected test-history))
 (define (fresh-test-runner)
-  (make-test-runner 0 0 '()))
+  (make-test-runner 0 0 0 '()))
 (define (reset-test-runner)
   (current-test-runner (fresh-test-runner)))
 (define current-test-runner
@@ -120,6 +120,13 @@
           "~s is not a valid compiler" x))
       x)))
 
+;; Mutable boolean flag that controls whether the framework is
+;; currently running known-invalid tests.
+;;
+;; As Claire pointed out we need to be very careful that this is ONLY
+;; true during test-all, NOT while the student is using the REPL.
+(define expect-failure (make-parameter #f))
+
 (define (refine-test-suite . num)
   (let* ((suite (test-suite))
          (max-index (- (length suite) 1)))
@@ -141,9 +148,10 @@
     (run-tests)))
 
 (define (test-invalid)
-  (begin
-    (test-suite (invalid-tests))
-    (run-tests)))
+  (parameterize ([expect-failure #t])
+    (begin
+      (test-suite (invalid-tests))
+      (run-tests))))
 
 (define (test-all)
   (begin
@@ -158,7 +166,8 @@
         (printf "\nTesting (invalid-tests)\n")
         (print-group-heading)
         (test-suite (invalid-tests))
-        (for-each (test-one compiler runner) (test-suite))
+	(parameterize ([expect-failure #t])
+	  (for-each (test-one compiler runner) (test-suite)))
         (print-finalization runner)
         (test-suite
           (append (valid-tests) (invalid-tests)))))))
@@ -221,20 +230,23 @@
 ;; Total:          200
 (define (print-finalization runner)
   (let ((passed (test-runner-passed runner))
-        (failed (test-runner-failed runner)))
+        (failed-expected   (test-runner-failed-expected   runner))
+	(failed-unexpected (test-runner-failed-unexpected runner)))
     (printf "~nTesting Summary~n")
     (printf "~a~n" (make-string 15 #\-))
-    (printf "Passes:~16,8t~4d~n" passed)
-    (printf "Failures:~16,8t~4d~n" failed)
-    (printf "Total:~16,8t~4d~n" (+ passed failed))))
+    (printf "Passes:              ~3d~n" passed)
+    (printf "Expected Failures:   ~3d~n" failed-expected)
+    (printf "UNEXPECTED Failures: ~3d~n" failed-unexpected)
+    (printf "Total:~16,8t~4d~n" (+ passed failed-expected failed-unexpected))))
 
 (define (current-test-number runner)
   (+ (test-runner-passed runner)
-    (test-runner-failed runner)))
+     (test-runner-failed-unexpected runner)
+     (test-runner-failed-expected   runner)))
 
 ;; This records the result of the previous test, whether it be a pass
 ;; (just increments test-runner-passed), or failed (increments
-;; test-runner-failed and stores the error condition in the history).
+;; test-runner-failed-[un]expected and stores the error condition in the history).
 (define (record-test-result pr runner)
   (cond
     ((test-passed? pr)
@@ -246,8 +258,10 @@
           (cons
             (cons (current-test-number runner) pr)
             (test-runner-test-history runner)))
-        (set-test-runner-failed! runner
-          (+ (test-runner-failed runner) 1))))))
+        (if (expect-failure)
+	    (set-test-runner-failed-expected!   runner (+ (test-runner-failed-expected   runner) 1))
+	    (set-test-runner-failed-unexpected! runner (+ (test-runner-failed-unexpected runner) 1)))
+   ))))
 
 (define (display-test-failure test-num)
   (let ([res (test-failure-condition test-num)])
