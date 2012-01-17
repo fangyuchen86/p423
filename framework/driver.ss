@@ -1,10 +1,10 @@
-;; Copyright $\copyright$ 2011 Aaron W. Hsu $\langle\.{arcfide@sacrideo.us}\rangle$
-;; \smallskip\noindent
+;; P423 Drivers
+
+;; Copyright (C) 2011 Aaron W. Hsu {arcfide@sacrideo.us}
 ;; Permission to use, copy, modify, and distribute this software for any
 ;; purpose with or without fee is hereby granted, provided that the above
 ;; copyright notice and this permission notice appear in all copies.
-;; \smallskip\noindent
-;; THE SOFTWARE IS PROVIDED ``AS IS'' AND THE AUTHOR DISCLAIMS ALL
+;; THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
 ;; WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
 ;; WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
 ;; AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
@@ -12,7 +12,6 @@
 ;; PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 ;; TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 ;; PERFORMANCE OF THIS SOFTWARE.
-;; }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -268,12 +267,14 @@
          (let ([passes-to-check
                  (if (null? maybe-opts) all (car maybe-opts))]
                bindings ...)
-           (compose-passes passes-to-check #f (input source-wrapper) spec1 spec2 ...)))))))
+           (compose-passes
+             passes-to-check #f (input source-wrapper) spec1 spec2 ...)))))))
 
 (define-syntax rewrite-specs
   (syntax-rules (iterate trace break/when %)
     [(_ name name-passes wp (specs ...) (bindings ...))
-     (define-compiler-aux ((sw (wp 'source)) bindings ...) (name name-passes sw) specs ...)]
+     (define-compiler-aux
+       ((sw (wp 'source)) bindings ...) (name name-passes sw) specs ...)]
     
     [(_ name name-passes wp (ispecs ... (specs ...)) (bindings ...) % rest ...)
      (rewrite-specs name name-passes wp
@@ -281,25 +282,29 @@
        (bindings ...)
        rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...) (iterate spec1 spec2 ...) rest ...)
+    [(_ name name-passes wp (specs ...) (bindings ...)
+       (iterate spec1 spec2 ...) rest ...)
      (rewrite-specs name name-passes wp
        ((specs ...))
        (bindings ...)
        spec1 spec2 ... % rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...) (trace pass foo ...) rest ...)
+    [(_ name name-passes wp (specs ...) (bindings ...)
+       (trace pass foo ...) rest ...)
      (rewrite-specs name name-passes wp
        (specs ... (trace pass w foo ...))
        (bindings ... (w (wp 'pass)))
        rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...) (break/when foo ...) rest ...)
+    [(_ name name-passes wp (specs ...) (bindings ...)
+       (break/when foo ...) rest ...)
      (rewrite-specs name name-passes wp
        ((break/when foo ...) specs ...)
        (bindings ...)
        rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...) (pass foo ...) rest ...)
+    [(_ name name-passes wp (specs ...) (bindings ...)
+       (pass foo ...) rest ...)
      (rewrite-specs name name-passes wp
        (specs ... (pass w foo ...))
        (bindings ... (w (wp 'pass)))
