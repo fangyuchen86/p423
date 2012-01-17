@@ -75,6 +75,7 @@
     test-compiler
     test-suite
     refine-test-suite
+    refine-to-unexpected
 
     ;; debugging
     display-test-failure
