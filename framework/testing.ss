@@ -48,13 +48,13 @@
 ;;
 ;; (test-suite <new-test-suite>)
 ;;    will redefine the test suite. 
-;; (refine-test-suite <list of numbers>)
-;;    test suite is refined to only include the tests from
-;;    given list. causes original numbering to be lost.
+;; (refine-test-suite <any number of test numbers>)
+;;    test suite is refined to only include the desired tests.
+;;    causes original numbering to be lost.
 ;;
 ;; (test-compiler <new-test-compiler>)
-;;    redefines which compiler is called. this should be a compiler
-;;    exported in your (compiler compile) library.
+;;    redefines which compiler is called. this should be a
+;;    compiler exported in your (compiler compile) library.
 ;;
 ;; (reset-test-runner)
 ;;    reset the current test runner to a fresh test runner.
@@ -151,6 +151,12 @@
       (begin
         (test-suite new-suite)
         (reset-test-runner)))))
+
+(define (refine-to-unexpected)
+  (let ((unexpected
+          (map (lambda (t) (and (cadr t) (car t)))
+            (test-runner-history (current-test-runner)))))
+    (apply refine-test-suite unexpected)))
 
 (define (test-valid)
   (begin
@@ -268,10 +274,10 @@
      (test-runner-fail-expected   runner)
      (test-runner-fail-unexpected runner)))
 
-;; This records the result of the previous test, whether it be a pass
-;; (just increments test-runner-passed), or failed (increments
-;; test-runner-failed-[un]expected and stores the error condition in
-;; the history).
+;; This records the result of the previous test, whether it be an
+;; expected pass (just increments test-runner-pass-expected), or
+;; failed (increments test-runner-failed-[un]expected and stores the
+;; error condition in the history). also store the unexpected-passes.
 (define (record-test-result pr ef runner)
   (cond
     ((or (error? pr)
@@ -280,16 +286,24 @@
          (violation? pr))
      (begin
        (add-to-history runner
-         (cons (current-test-number runner) pr))
+         (cons (current-test-number runner)
+           ;; If the failure was expected, store #f. otherwise #t
+           (cons (not ef) pr)))
        (if ef
+           ;; An expected failure
            (incr-fail-expected runner)
+           ;; An unexpected failure
            (incr-fail-unexpected runner))))
     (else
       (if ef
+          ;; An unexpected pass
+          ;; Since this is an unexpected result, store #t.
           (begin
             (add-to-history runner
-              (cons (current-test-number runner) (void)))
+              (cons (current-test-number runner)
+                (cons #t (void))))
             (incr-pass-unexpected runner))
+          ;; An expected pass
           (incr-pass-expected runner)))))
 
 (define (display-test-failure test-num)
@@ -308,7 +322,7 @@
 (define (test-failure-condition test-num)
   (let ((runner (current-test-runner)))
     (let ([res (assv test-num (test-runner-history runner))])
-      (and res (cdr res)))))
+      (and res (cddr res)))))
 
 )
 
