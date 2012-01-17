@@ -153,10 +153,10 @@
         (reset-test-runner)))))
 
 (define (refine-to-unexpected)
-  (let ((unexpected
-          (map (lambda (t) (and (cadr t) (car t)))
-            (test-runner-history (current-test-runner)))))
-    (apply refine-test-suite unexpected)))
+  (let ((runner (current-test-runner)))
+    (let ((unexpected
+            (map car (filter cadr (test-runner-history runner)))))
+      (apply refine-test-suite unexpected))))
 
 (define (test-valid)
   (begin
