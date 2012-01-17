@@ -12,6 +12,12 @@
     (framework helpers)
     (framework driver))
 
+(define env
+  (environment
+    '(chezscheme)
+    '(framework helpers)
+    '(framework helpers frame-variables)))
+
 (define rewrite-opnds
   (lambda (x)
     (match x
@@ -39,10 +45,8 @@
 
 (define-language-wrapper (source/wrapper verify-scheme/wrapper)
   (x)
-  (import
-    (except (chezscheme) set!)
-    (framework helpers))
-  (define-frame-variables)
+  (environment env)
+  (import (except (chezscheme) set!))
   (define int64-in-range?
     (lambda (x)
       (<= (- (expt 2 63)) x (- (expt 2 63) 1))))
@@ -68,10 +72,8 @@
 
 (define-language-wrapper expose-frame-var/wrapper
   (x)
-  (import
-    (except (chezscheme) set!)
-    (framework helpers))
-  (define-frame-variables)
+  (environment env)
+  (import (except (chezscheme) set!))
   (define int64-in-range?
     (lambda (x)
       (<= (- (expt 2 63)) x (- (expt 2 63) 1))))
@@ -98,10 +100,8 @@
 
 (define-language-wrapper flatten-program/wrapper
   (x)
-  (import
-    (except (chezscheme) set!)
-    (framework helpers))
-  (define-frame-variables)
+  (environment env)
+  (import (except (chezscheme) set!))
   (define int64-in-range?
     (lambda (x)
       (<= (- (expt 2 63)) x (- (expt 2 63) 1))))
