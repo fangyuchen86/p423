@@ -26,6 +26,20 @@
       [(,[expr] ...) `(,expr ...)]
       [,x x])))
 
+(define rewrite-opnds
+  (lambda (x)
+    (match x
+      [,r (guard (disp-opnd? r))
+       `(mref ,(disp-opnd-reg r) ,(disp-opnd-offset r))]
+      [,r (guard (index-opnd? r))
+       `(mref ,(index-opnd-breg r) ,(index-opnd-ireg r))]
+      [(set! ,r ,[expr]) (guard (disp-opnd? r))
+       `(mset! ,(disp-opnd-reg r) ,(disp-opnd-offset r) ,expr)]
+      [(set! ,r ,[expr]) (guard (index-opnd? r))
+       `(mset! ,(index-opnd-breg r) ,(index-opnd-ireg r) ,expr)]
+      [(,[expr] ...) `(,expr ...)]
+      [,x x])))
+
 (define pass->wrapper
   (lambda (pass)
     (case pass
@@ -37,8 +51,7 @@
       (else (errorf 'pass->wrapper
               "Wrapper for pass ~s not found" pass)))))
 
-(define-language-wrapper
-  (source/wrapper verify-scheme/wrapper)
+(define-language-wrapper (source/wrapper verify-scheme/wrapper)
   (x)
   (import
     (except (chezscheme) set!)
@@ -69,6 +82,10 @@
 
 (define-language-wrapper expose-frame-var/wrapper
   (x)
+<<<<<<< HEAD
+=======
+  (environment env)  
+>>>>>>> 3116b349da6b398c88a63583c721cffeb1a10f5d
   (import
     (except (chezscheme) set!)
     (framework helpers))

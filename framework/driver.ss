@@ -21,8 +21,6 @@
 ;; These drivers allow you to define compilers and wrappers.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; 
 
 #!chezscheme
 (library
