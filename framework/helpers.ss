@@ -257,7 +257,7 @@
   (lambda (x)
     (syntax-case x ()
       [(k (name args ...) defn ... expr)
-       #'(define-who name (lambda (args ...) defn ... expr))]
+       #'(k name (lambda (args ...) defn ... expr))]
       [(k name defn ... expr)
        (with-syntax ([who (datum->syntax-object #'k 'who)])
          #'(define name
@@ -269,7 +269,7 @@
   (lambda (x)
     (syntax-case x ()
       [(k (name args ...) defn ... expr)
-       #'(trace-define-who name (lambda (args ...) defn ... expr))]
+       #'(k name (lambda (args ...) defn ... expr))]
       [(k name defn ... expr)
        (with-syntax ([who (datum->syntax-object #'k 'who)])
          #'(trace-define name
