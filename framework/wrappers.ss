@@ -113,7 +113,9 @@
 
 (define (nop) (void))
 
-)(library (framework wrappers)
+)
+
+(library (framework wrappers)
   (export
     pass->wrapper
     source/wrapper
