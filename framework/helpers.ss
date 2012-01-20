@@ -246,8 +246,8 @@
     parameter-registers frame-pointer-register
     return-value-register return-address-register 
     allocation-pointer-register
-    define-who trace-define-who
-    )
+    define-who trace-define-who)
+  
   (import
     (chezscheme)
     (framework helpers aux)
@@ -747,22 +747,6 @@
        (unless (and (integer? x) (exact? x) (>= x 0))
          (error 'unique-name-count "invalid count ~s" count))
        (set! count x)]))
-;   (define extract-root
-;     (lambda (sym)
-;       (list->string
-;         (let ([chars (string->list (symbol->string sym))])
-;           (define (s0 ls)
-;             (cond
-;               [(null? ls) chars]
-;               [(char-numeric? (car ls)) (s1 (cdr ls))]
-;               [else chars]))
-;           (define (s1 ls)
-;             (cond
-;               [(null? ls) chars]
-;               [(char-numeric? (car ls)) (s1 (cdr ls))]
-;               [(memv (car ls) '(#\. #\$)) (reverse (cdr ls))]
-;               [else chars]))
-;           (s0 (reverse chars))))))
   (define extract-suffix
     (lambda (sym)
       (let ([str (symbol->string sym)])
