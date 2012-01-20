@@ -23,21 +23,21 @@
 
 ;;;DEFINING COMPILERS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; A compiler defined with this library will contain not only calls
-;; each of the declared passes, but will also run wrappers between
-;; each pass to ensure the actual value of the expression has not
-;; changed through running the compiler.  This allows us to test
-;; without explicitly declaring a test's 'expected result', since we
-;; control what the source expression evaluates to before the compiler
-;; runs.
+;; This library can be used to define custom sets of compiler
+;; passes. Generally this is done to chain the full set of passes for
+;; each assignment together, can also be used to run a subset of those
+;; passes. For each pass, the library tests the output value of the
+;; expression by using the associated wrapper, and so tries to ensure
+;; correctness at each step of the compiler.
 ;;
 ;; Simple usage:
 ;; (define-compiler (<name> <name-passes> <wrapper-proc>)  <specs> ...)
 ;;
 ;; This defines a compiler <name>, a list of the names of the passes
 ;; in the passes <name-passes>, and using a procedure <wrapper-proc>
-;; to retrieve the appropriate wrapper for each pass.  Each <spec>
-;; should be one of the following:
+;; to retrieve the appropriate wrapper for each pass.  An example of a
+;; <wrapper-proc> is the pass->wrapper procedure provided in
+;; wrappers.ss. Each <spec> should be one of the following:
 ;;
 ;;   (<pass>)
 ;;       where pass is the name of the pass to call
@@ -45,7 +45,9 @@
 ;;       where pass is the name of the pass to call, and <emit> is a
 ;;       procedure to run immediately afterwards. <emit> should print
 ;;       an expression an output file, returning where that file can
-;;       be found.
+;;       be found. For example, the generate-x86-64 pass of the P423
+;;       compiler uses an "assemble" procedure to output the x86_64 to
+;;       a file.
 ;;
 ;; Or, one of the customizations found below...
 ;;
@@ -56,12 +58,14 @@
 ;; it a bit, there are a few additional options for specs.
 ;;
 ;;   (trace <pass>)
-;;      will trace-define the pass instead; printing out the input
-;;      and output from the pass.
-;;   (iterate <specs>)
-;;      will repeatedly call <specs> until a specific breaking point
+;;      Traces the pass, printing the input and output for each
+;;      invocation of the pass.
+;;   (iterate <spec>+)
+;;      Iterates over the set defined by <spec>, where each <spec> is
+;;      a compiler pass. Iteration ends when a condition defined by
+;;      the "break/when" form holds.
 ;;   (break/when predicate?)
-;;      will break an iteration form.
+;;      Specifies the stopping condition for an "iterate" form.
 ;;
 ;; For example, if we have passes "pass1" "pass2" "pass3", and we want
 ;; to repeat them until a predicate "everything-okay?" is true, we
@@ -83,25 +87,28 @@
 ;; transform an incoming expression into an expression that can be
 ;; evaluated in Scheme.
 ;;
-;; (define-language-wrapper <name> (<args> ...) <expression> ...)
-;;    where <name> is the name of the wrapper being defined, <args> are
-;;    the arguments it should take, and the <expression>s are the
-;;    wrapping defininitions that cause the incoming arguments to be
-;;    valid scheme.
+;; (define-language-wrapper <name>
+;;   (<input>)
+;;   (environment <env>)?
+;;   <expression>+)
+;;       Defines a single wrapper with name <name>, <input> as the
+;;       expression to evaluate, and the <expression>+ to define the code
+;;       to convert the <input> to a Scheme-evaluable expression. The
+;;       macro optionally accepts an environment argument in the
+;;       (environment <env>) form.
 ;;
-;; (define-language-wrapper (<name> ...) (<args ...) <expression> ...)
-;;    defines multiple wrappers at once. write as many <name>s as
-;;    desired, they will share the same definition.
+;; (define-language-wrapper (<name>+)
+;;   (<input>)
+;;   (environment <env>)?
+;;   <expression>+)
+;;    Similar to the definition above, except it accepts one or more
+;;    wrappers with the set of names <name>+ given. It takes a single
+;;    <input> and <expression> and defines the same wrapper for each
+;;    <name>. This form also takes an optional environment argument in
+;;    the (environment <env>).
 ;;
-;; Either one of the following forms can also accept a special form
-;; for using a particular initial environment.
-;;
-;; (define-language-wrapper <name or names>
-;;    (<args> ...)
-;;    (environment <env>)
-;;    <expression> ...)
-;;
-;; These wrappers are provided in wrappers.ss
+;; All the wrappers needed for P423 are defined in wrappers.ss as they
+;; become necessary.
 
 #!chezscheme
 (library
