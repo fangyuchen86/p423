@@ -127,7 +127,7 @@
     expose-frame-var/wrapper
     expose-basic-blocks/wrapper
     flatten-program/wrapper
-    generate-x86/wrapper)
+    generate-x86-64/wrapper)
   (import
     (chezscheme)
     (framework match)
