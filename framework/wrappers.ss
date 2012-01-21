@@ -6,7 +6,7 @@
     code
     jump
     locals
-    lambda
+    (rename lambda lambda-p423)
     register-conflict
     locate
     true
@@ -85,7 +85,7 @@
     (syntax-rules ()
       [(_ (x* ...) body) (let ([x* 0] ...) body)]))
 
-(define-syntax lambda
+(define-syntax lambda-p423
     (let ()
       (import scheme)
       (syntax-rules ()
