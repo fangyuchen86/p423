@@ -707,54 +707,54 @@
     (letrec ([fact$0 (lambda ()
                        (locals ()
                          (begin
-                                        ; no if, so use a computed goto
-                                        ; put address of fact$1 at bfp[0]
+                           ;; no if, so use a computed goto
+                           ;; put address of fact$1 at bfp[0]
                            (set! rcx fact$1)
                            (set! fv0 rcx)
-                                        ; put address of fact$2 at bfp[8]
+                           ;; put address of fact$2 at bfp[8]
                            (set! rcx fact$2)
                            (set! fv1 rcx)
-                                        ; if x == 0 set rcx to 8, else set rcx to 0
+                           ;; if x == 0 set rcx to 8, else set rcx to 0
                            (set! rdx 0)
                            (set! rdx (- rdx rax))
                            (set! rdx (sra rdx 63))
                            (set! rdx (logand rdx 8))
-                                        ; point bfp at stored address of fact$1 or fact$2
+                           ;; point bfp at stored address of fact$1 or fact$2
                            (set! rbp (+ rbp rdx))
-                                        ; grab whichever and reset bfp
+                           ;; grab whichever and reset bfp
                            (set! rcx fv0)
                            (set! rbp (- rbp rdx))
-                                        ; tail call (jump to) fact$1 or fact$2
+                           ;; tail call (jump to) fact$1 or fact$2
                            (rcx r15 rax rbp))))]
              [fact$1 (lambda ()
                        (locals ()
                          (begin 
-                                        ; get here if rax is zero, so return 1
+                           ;; get here if rax is zero, so return 1
                            (set! rax 1) 
                            (r15 rax))))]
              [fact$2 (lambda ()
                        (locals ()
                          (begin
-                                        ; get here if rax is nonzero, so save return
-                                        ; address and eax, then call fact$0 recursively
-                                        ; with eax - 1, setting fact$3 as return point
+                           ;; get here if rax is nonzero, so save return
+                           ;; address and eax, then call fact$0 recursively
+                           ;; with eax - 1, setting fact$3 as return point
                            (set! fv0 r15)
                            (set! fv1 rax)
                            (set! rax (- rax 1))
                            (set! r15 fact$3)
-                                        ; bump rbp by 16 (two 64-bit words) so that
-                                        ; recursive call doesn't wipe out our saved
-                                        ; eax and return address
+                           ;; bump rbp by 16 (two 64-bit words) so that
+                           ;; recursive call doesn't wipe out our saved
+                           ;; eax and return address
                            (set! rbp (+ rbp 16))
                            (fact$0 rax r15 rbp))))]
              [fact$3 (lambda ()
                        (locals ()
                          (begin
-                                        ; restore rbp to original value
+                           ;; restore rbp to original value
                            (set! rbp (- rbp 16))
-                                        ; eax holds value of recursive call, multiply
-                                        ; by saved value at fv1 and return to saved
-                                        ; return address at fv0
+                           ;; eax holds value of recursive call, multiply
+                           ;; by saved value at fv1 and return to saved
+                           ;; return address at fv0
                            (set! rax (* rax fv1))
                            (fv0 rax rbp))))])
       (locals () (begin (set! rax 10) (fact$0 rax r15))))
