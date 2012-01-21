@@ -6,7 +6,7 @@
     code
     jump
     locals
-    (rename lambda lambda-p423)
+    (rename (lambda-p423 lambda))
     register-conflict
     locate
     true
