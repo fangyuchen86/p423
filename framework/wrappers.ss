@@ -164,9 +164,10 @@
 (define-language-wrapper (source/wrapper verify-scheme/wrapper)
   (x)
   (environment env)
-  (import (only (framework wrappers aux)
-            set! handle-overflow  locals
-            lambda true false nop))
+  (import
+    (only (framework wrappers aux)
+      set! handle-overflow  locals lambda true false nop))
+  (reset-machine-state!)
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -175,9 +176,9 @@
 ;;-----------------------------------
 (define-language-wrapper uncover-register-conflict/wrapper (x) 
   (environment env)
-  (import (only (framework wrappers aux)
-             handle-overflow set! locals
-            lambda register-conflict true false nop))
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! locals lambda register-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -186,9 +187,9 @@
 ;;-----------------------------------
 (define-language-wrapper assign-registers/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-             handle-overflow set! locate
-            lambda true false nop))
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! locate lambda true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -197,9 +198,9 @@
 ;;-----------------------------------
 (define-language-wrapper discard-call-live/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-             handle-overflow set! locate
-            true false nop)
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! locate true false nop)
     (only (chezscheme) lambda))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
@@ -209,9 +210,10 @@
 ;;-----------------------------------
 (define-language-wrapper finalize-locations/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-            handle-overflow set!
-            true false nop))
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! true false nop)
+    (only (chezscheme) lambda))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -220,8 +222,10 @@
 ;;-----------------------------------
 (define-language-wrapper expose-frame-var/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-            set! handle-overflow true false nop))
+  (import
+    (only (framework wrappers aux)
+      set! handle-overflow true false nop)
+    (only (chezscheme) lambda))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
@@ -233,8 +237,10 @@
 ;;-----------------------------------
 (define-language-wrapper expose-basic-blocks/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-            handle-overflow set!))
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set!)
+    (only (chezscheme) lambda))
   (call/cc
     (lambda (k)
       (set! ,return-address-register k)
@@ -246,7 +252,10 @@
 ;;-----------------------------------
 (define-language-wrapper flatten-program/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux) set! handle-overflow code jump))
+  (import
+    (only (framework wrappers aux)
+      set! handle-overflow code jump)
+    (only (chezscheme) lambda))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
