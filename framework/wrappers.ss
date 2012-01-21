@@ -85,6 +85,21 @@
         [(lambda () body) (lambda arg-list body)]
         [(lambda arg-list e e* ...) (lambda arg-list e e* ...)])))
 
+(define-syntax register-conflict
+  (syntax-rules ()
+    [(_ ct body) body]))
+
+(define-syntax locate
+  (let ()
+    (import scheme)
+    (syntax-rules ()
+      [(_ ([x* loc*] ...) body)
+       (let-syntax ([x* (identifier-syntax 
+                          (id loc*) 
+                          ((set! id e) 
+                           (set! loc* (handle-overflow e))))] ...)
+         body)])))
+
 (define (true) #t)
 
 (define (false) #f)
@@ -130,6 +145,10 @@
       (else (errorf 'pass->wrapper
               "Wrapper for pass ~s not found" pass)))))
 
+;;-------------------------
+;; source/wrapper
+;; verify-scheme/wrapper
+;;-------------------------
 (define-language-wrapper (source/wrapper verify-scheme/wrapper)
   (x)
   (environment env)
@@ -139,66 +158,68 @@
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
+;;-------------------------
+;; uncover-register-conflict/wrapper
+;;-------------------------
 (define-language-wrapper uncover-register-conflict/wrapper (x) 
   (environment env)
-  (import
-    (except (chezscheme) set! lambda)
-    (p423 compiler helpers))
-  (define int64-in-range?
-    (let ()
-      (import scheme)
-      (lambda (x)
-        (<= (- (expt 2 63)) x (- (expt 2 63) 1)))))
-  (define handle-overflow
-    (let ()
-      (import scheme)
-      (lambda (x)
-        (cond
-          [(not (number? x)) x]
-          [(int64-in-range? x) x]
-          [(not (= x (logand 18446744073709551615 x)))
-           (handle-overflow (logand 18446744073709551615 x))]
-          [(< x 0) (handle-overflow (+ x (expt 2 64)))]
-          [else (handle-overflow (- x (expt 2 64)))]))))
-  (define-syntax set!
-    (let ()
-      (import scheme)
-      (syntax-rules ()
-        [(_ x expr)
-         (set! x (handle-overflow expr))])))
-  (define-syntax locals
-    (syntax-rules ()
-      [(_ (x* ...) body) (let ([x* 0] ...) body)]))
-  (define-syntax lambda
-    (let ()
-      (import scheme)
-      (syntax-rules ()
-        [(lambda () body) (lambda arg-list body)]
-        [(lambda arg-list e e* ...) (lambda arg-list e e* ...)])))
-  (define-syntax register-conflict
-    (syntax-rules ()
-      [(_ ct body) body]))
-  (define (true) #t)
-  (define (false) #f)
-  (define (nop) (void))
-  (call/cc 
-    (lambda (k)
-      (set! r15 k)
-      ,x))
-  rax)
+  (import (only (framework wrappers aux)
+            int64-in-range? handle-overflow set! locals
+            lambda register-conflict true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
 
-(define-language-wrapper expose-frame-var/wrapper
-  (x)
+;;-------------------------
+;; assign-registers/wrapper
+;;-------------------------
+(define-language-wrapper assign-registers/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux) set! handle-overflow))
+  (import (only (framework wrappers aux)
+            int64-in-range? handle-overflow set! locate
+            lambda true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;-------------------------
+;; discard-call-live/wrapper
+;;-------------------------
+(define-language-wrapper discard-call-live/wrapper (x)
+  (environment env)
+  (import (only (framework wrappers aux)
+            int64-in-range? handle-overflow set! locate
+            true false nop)
+    (only (chezscheme) lambda))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;-------------------------
+;; finalize-locations/wrapper
+;;-------------------------
+(define-language-wrapper finalize-locations/wrapper (x)
+  (environment env)
+  (import (only (framework wrappers aux)
+            int64-in-range? handle-overflow set!
+            true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;-------------------------
+;; expose-frame-var/wrapper
+;;-------------------------
+(define-language-wrapper expose-frame-var/wrapper (x)
+  (environment env)
+  (import (only (framework wrappers aux)
+            set! handle-overflow true false nop))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
   ,return-value-register)
 
-(define-language-wrapper flatten-program/wrapper
-  (x)
+;;-------------------------
+;; flatten-program/wrapper
+;;-------------------------
+(define-language-wrapper flatten-program/wrapper (x)
   (environment env)
   (import (only (framework wrappers aux) set! handle-overflow code jump))
   (call/cc 
@@ -207,6 +228,9 @@
       ,(rewrite-opnds x)))
   ,return-value-register)
 
+;;-------------------------
+;; generate-x86
+;;-------------------------
 (define (generate-x86-64/wrapper program)
   (let-values ([(out in err pid)
                 (open-process-ports
