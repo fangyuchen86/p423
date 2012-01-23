@@ -21,6 +21,95 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;DEFINING COMPILERS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; This library can be used to define custom sets of compiler
+;; passes. Generally this is done to chain the full set of passes for
+;; each assignment together, can also be used to run a subset of those
+;; passes. For each pass, the library tests the output value of the
+;; expression by using the associated wrapper, and so tries to ensure
+;; correctness at each step of the compiler.
+;;
+;; Simple usage:
+;; (define-compiler (<name> <name-passes> <wrapper-proc>)  <specs> ...)
+;;
+;; This defines a compiler <name>, a list of the names of the passes
+;; in the passes <name-passes>, and using a procedure <wrapper-proc>
+;; to retrieve the appropriate wrapper for each pass.  An example of a
+;; <wrapper-proc> is the pass->wrapper procedure provided in
+;; wrappers.ss. Each <spec> should be one of the following:
+;;
+;;   (<pass>)
+;;       where pass is the name of the pass to call
+;;   (<pass> <emit>)
+;;       where pass is the name of the pass to call, and <emit> is a
+;;       procedure to run immediately afterwards. <emit> should print
+;;       an expression an output file, returning where that file can
+;;       be found. For example, the generate-x86-64 pass of the P423
+;;       compiler uses an "assemble" procedure to output the x86_64 to
+;;       a file.
+;;
+;; Or, one of the customizations found below...
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Customizations:
+;; If you already have a compiler defined, and would like to customize
+;; it a bit, there are a few additional options for specs.
+;;
+;;   (trace <pass>)
+;;      Traces the pass, printing the input and output for each
+;;      invocation of the pass.
+;;   (iterate <spec>+)
+;;      Iterates over the set defined by <spec>, where each <spec> is
+;;      a compiler pass. Iteration ends when a condition defined by
+;;      the "break/when" form holds.
+;;   (break/when predicate?)
+;;      Specifies the stopping condition for an "iterate" form.
+;;
+;; For example, if we have passes "pass1" "pass2" "pass3", and we want
+;; to repeat them until a predicate "everything-okay?" is true, we
+;; would write:
+;;   
+;;   (iterate (pass1) (pass2) (pass3)
+;;      (break/when everything-okay?))
+;;
+;; If at the same time we wanted to trace pass2, we could add a trace form...
+;;
+;;   (iterate (pass1) (trace pass2) (pass3)
+;;      (break/when everything-okay?))
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;DEFINING WRAPPERS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; These drivers also allow you to define language-wrappers, to
+;; transform an incoming expression into an expression that can be
+;; evaluated in Scheme.
+;;
+;; (define-language-wrapper <name>
+;;   (<input>)
+;;   (environment <env>)?
+;;   <expression>+)
+;;       Defines a single wrapper with name <name>, <input> as the
+;;       expression to evaluate, and the <expression>+ to define the code
+;;       to convert the <input> to a Scheme-evaluable expression. The
+;;       macro optionally accepts an environment argument in the
+;;       (environment <env>) form.
+;;
+;; (define-language-wrapper (<name>+)
+;;   (<input>)
+;;   (environment <env>)?
+;;   <expression>+)
+;;    Similar to the definition above, except it accepts one or more
+;;    wrappers with the set of names <name>+ given. It takes a single
+;;    <input> and <expression> and defines the same wrapper for each
+;;    <name>. This form also takes an optional environment argument in
+;;    the (environment <env>).
+;;
+;; All the wrappers needed for P423 are defined in wrappers.ss as they
+;; become necessary.
+
 #!chezscheme
 (library
   (framework driver aux)
@@ -314,24 +403,6 @@
   (syntax-rules ()
     ((_ (name name-passes wrapper-proc) spec1 spec2 ...)
      (rewrite-specs name name-passes wrapper-proc () () spec1 spec2 ...))))
-
-(define-syntax add-wrappers
-  (syntax-rules (iterate % break/when)
-    [(_ % name all (passes ...))
-     (begin
-       (define-enumeration contains (passes ...) name)
-       (define all (make-enumeration '(passes ...))))]
-    [(_ % name all (passes ...) (iterate spec1 spec2 ...) rest ...)
-     (define-compiler-enumeration % name all (passes ...)
-       spec1 spec2 ... rest ...)]
-    [(_ % name all (passes ...) (break/when foo ...) rest ...)
-     (define-compiler-enumeration % name all (passes ...)
-       rest ...)]
-    [(_ % name all (passes ...) (pass foo ...) rest ...)
-     (define-compiler-enumeration % name all (passes ... pass)
-       rest ...)]
-    [(_ name all spec1 spec2 ...)
-     (define-compiler-enumeration % name all () spec1 spec2 ...)]))
 
 (define-syntax (iterate x)
   (syntax-violation #f "misplaced aux keyword" x))
