@@ -129,27 +129,14 @@
     (chezscheme)
     (framework match)
     (framework helpers)
-    (framework driver))
+    (framework driver)
+    (only (framework wrappers aux) rewrite-opnds))
 
 (define env
   (environment
     '(except (chezscheme) set!)
     '(framework helpers)
     '(framework helpers frame-variables)))
-
-(define rewrite-opnds
-  (lambda (x)
-    (match x
-      [,r (guard (disp-opnd? r))
-       `(mref ,(disp-opnd-reg r) ,(disp-opnd-offset r))]
-      [,r (guard (index-opnd? r))
-       `(mref ,(index-opnd-breg r) ,(index-opnd-ireg r))]
-      [(set! ,r ,[expr]) (guard (disp-opnd? r))
-       `(mset! ,(disp-opnd-reg r) ,(disp-opnd-offset r) ,expr)]
-      [(set! ,r ,[expr]) (guard (index-opnd? r))
-       `(mset! ,(index-opnd-breg r) ,(index-opnd-ireg r) ,expr)]
-      [(,[expr] ...) expr]
-      [,x x])))
 
 (define pass->wrapper
   (lambda (pass)
