@@ -33,6 +33,8 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-compile-passes pass->wrapper)
   (verify-scheme)
+  (expose-frame-var)
+  (flatten-program)
   (generate-x86-64 assemble))
 
 ;; See the drivers.ss file for other options when defining a compiler
