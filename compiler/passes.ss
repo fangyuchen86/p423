@@ -5,7 +5,7 @@
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012/1/18
+;; 2012/1/30
 
 #!chezscheme
 (library (compiler passes)
@@ -121,14 +121,18 @@ Binop     -->  + | - | * | logand | logor | sra
    | Tail --> (,Triv)
    |       |  (begin ,Effect* ,Tail)
    |#
-  (define (Tail exp)
-    (match exp
-      [(begin ,[Effect -> e*] ... ,[Tail -> t]) exp]
-      [(,t) (guard (triv? t)
-                   (not (integer? t)) ; architectural nuance.  Jump must be to label, not address.
-            )
-       (values)]
-      [,x (errorf who "invalid tail: ~s" x)]
+  (define (Tail env)
+    (lambda (exp)
+      (match exp
+        [(begin ,[Effect -> e*] ... ,[(Tail env) -> t]) exp]
+        [(,t) (guard
+                (triv? t)
+                (if (label? t) (and (member t env) #t))
+                (not (integer? t)) ; architectural nuance.  Jump must be to label, not address.
+              )
+         (values)]
+        [,x (errorf who "invalid tail: ~s" x)]
+      )
     )
   )
 
@@ -139,10 +143,13 @@ Binop     -->  + | - | * | logand | logor | sra
    | Program --> (letrec ([<label> (lambda () ,Tail)]*) ,Tail)
    |#
   (match program
-    [(letrec ([,lbl (lambda () ,[Tail -> t*])] ...) ,[Tail -> t])
-     (if (set? (map string->number (map extract-suffix lbl)))
-                    program
-                    (errorf who "Label suffixes must be unique: ~s" lbl))]
+    [(letrec ([,lbl (lambda () ,t*)] ...) ,t)
+     (let ([env (cons 'r15 lbl)])
+       (for-each (Tail env) t*)
+       ((Tail env) t)
+       (if (set? (map string->number (map extract-suffix lbl)))
+             program
+           (errorf who "Label suffixes must be unique: ~s" lbl)))]
     [,x (errorf who "invalid syntax for Program: expected (letrec ([<label> (lambda () ,Tail)]*) ,Tail) but received ~s" program)]
   )
 )
@@ -161,7 +168,6 @@ Binop     -->  + | - | * | logand | logor | sra
  | fv1 --> #<disp rbp 8>
  | fv[i] --> #<disp rbp 8i>
  |#
-
 (define (expose-frame-var sexp)
   (match sexp
     [,x (guard (frame-var? x)) (make-disp-opnd 'rbp (* 8 (frame-var->index x)))]
@@ -172,9 +178,10 @@ Binop     -->  + | - | * | logand | logor | sra
 
 
 #| flatten-program : scheme-exp --> pseudo-assmebly-exp
- |
+ | flatten-program takes a scheme expression and 'flattens' it,
+ | converting it into a pseudo-assembly code expression without nesting
+ | with which it is easier to convert directly into x86-64 assembly.
  |#
-
 (define (flatten-program program)
   (match program
     [(letrec (,[block*] ...) ,[tail]) `(code ,tail ... ,block* ... ...)] ;program
