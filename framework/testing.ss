@@ -80,6 +80,7 @@
     refine-to-unexpected
 
     ;; debugging
+    test-ref
     display-test-failure
     test-failure-condition)
   
@@ -231,7 +232,7 @@
 ;;
 ;;    1    Pass    
 ;;    2    Fail    Pass: PASS-NAME
-;;    3    Fail    Compile-time error
+;;    3    Fail    Runtime error (in who)
 ;; ...
 (define (print-individual-completion pr runner)
   (apply printf "~4d    ~8a~a~n"
@@ -248,7 +249,10 @@
          "Verification error"
          (pass-verification-violation-pass pass-result)))]
     [(or (error? pass-result) (violation? pass-result))
-     (list "Fail" "Runtime error")]
+     (list "Fail" 
+       (if (who-condition? pass-result)
+           (format "Runtime error in ~s" (condition-who pass-result))
+           "Runtime error"))]
     [else (list "Pass" "")]))
 
 ;; Prints a final summary for the testing.

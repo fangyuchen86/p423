@@ -332,7 +332,7 @@
   (syntax-rules (iterate % break/when)
     [(_ % name all (passes ...))
      (begin
-       (define-enumeration contains (passes ...) name)
+       (define name (list passes ...))
        (define all (make-enumeration '(passes ...))))]
     [(_ % name all (passes ...) (iterate spec1 spec2 ...) rest ...)
      (define-compiler-enumeration % name all (passes ...)
@@ -402,7 +402,28 @@
 (define-syntax define-compiler
   (syntax-rules ()
     ((_ (name name-passes wrapper-proc) spec1 spec2 ...)
-     (rewrite-specs name name-passes wrapper-proc () () spec1 spec2 ...))))
+     (rewrite-specs name name-passes wrapper-proc () () spec1 spec2 ...))
+    ((_ (name name-passes name-step wrapper-proc) spec1 spec2 ...)
+     (begin
+       (define-compiler (name name-passes wrapper-proc) spec1 spec2 ...)
+       (define-step name-step name-passes)))))
+
+(define-syntax define-step
+  (syntax-rules ()
+    ((_ name-step name-passes)
+     (define name-step
+       (case-lambda
+         ((prog)
+          (name-step prog #f))
+         ((prog n)
+          (let loop ((prog prog) (passes name-passes) (n n))
+            (unless (or (null? passes) (and n (zero? n)))
+              (begin
+                (printf "\nPass: ~s\n" (car passes))
+                (let ((result ((car passes) prog)))
+                  (printf "\nOutput: \n")
+                  (pretty-print result)
+                  (loop result (cdr passes) (and n (sub1 n)))))))))))))
 
 (define-syntax (iterate x)
   (syntax-violation #f "misplaced aux keyword" x))
