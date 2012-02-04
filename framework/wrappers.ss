@@ -6,12 +6,16 @@
     code
     jump
     locals
+    locate
+    ulocals
+    spills
     (rename (lambda-p423 lambda))
     register-conflict
     locate
     true
     false
-    nop)
+    nop
+    frame-conflict)
   (import
     (except (chezscheme) set!)
     (framework match)
@@ -81,9 +85,17 @@
   (syntax-rules ()
     [(_ target) (target)]))
 
-  (define-syntax locals
-    (syntax-rules ()
-      [(_ (x* ...) body) (let ([x* 0] ...) body)]))
+(define-syntax locals
+  (syntax-rules ()
+    [(_ (x* ...) body) (let ([x* 0] ...) body)]))
+
+(define-syntax ulocals
+  (syntax-rules ()
+    [(_ (x* ...) body) (let ([x* 0] ...) body)]))
+
+(define-syntax spills
+  (syntax-rules ()
+    [(_ (x* ...) body) (let ([x* 0] ...) body)]))
 
 (define-syntax lambda-p423
     (let ()
@@ -91,6 +103,10 @@
       (syntax-rules ()
         [(lambda () body) (lambda arg-list body)]
         [(lambda arg-list e e* ...) (lambda arg-list e e* ...)])))
+
+(define-syntax frame-conflict
+  (syntax-rules ()
+    [(_ ct body) body]))
 
 (define-syntax register-conflict
   (syntax-rules ()
@@ -118,10 +134,15 @@
 (library (framework wrappers)
   (export
     pass->wrapper
-    verify-scheme/wrapper
     source/wrapper
+    verify-scheme/wrapper
+    uncover-frame-conflict/wrapper
+    introduce-allocation-forms/wrapper
+    select-instructions/wrapper
     uncover-register-conflict/wrapper
     assign-registers/wrapper
+    assign-frame/wrapper
+    finalize-frame-locations/wrapper
     discard-call-live/wrapper
     finalize-locations/wrapper
     expose-frame-var/wrapper
@@ -146,8 +167,13 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((uncover-frame-conflict) uncover-frame-conflict/wrapper)
+      ((introduce-allocation-forms) introduce-allocation-forms/wrapper)
+      ((select-instructions/wrapper) select-instructions/wrapper)
       ((uncover-register-conflict) uncover-register-conflict/wrapper)
       ((assign-registers) assign-registers/wrapper)
+      ((assign-frame) assign-frame/wrapper)
+      ((finalize-frame-locations) finalize-frame-locations/wrapper)
       ((discard-call-live) discard-call-live/wrapper)
       ((finalize-locations) finalize-locations/wrapper)
       ((expose-frame-var) expose-frame-var/wrapper)
@@ -164,10 +190,43 @@
 (define-language-wrapper (source/wrapper verify-scheme/wrapper)
   (x)
   (environment env)
-  (import (only (framework wrappers aux)
-            set! handle-overflow  locals
-            lambda true false nop))
+  (import
+    (only (framework wrappers aux)
+      set! handle-overflow locals lambda true false nop))
   (reset-machine-state!)
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;-----------------------------------
+;; uncover-frame-conflict/wrapper
+;;-----------------------------------
+(define-language-wrapper uncover-frame-conflict/wrapper
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      set! handle-overflow locals lambda true false nop frame-conflict))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+
+;;-----------------------------------
+;; introduce-allocation-forms/wrapper
+;; finalize-frame-locations/wrapper
+;; select-instructions/wrapper
+;; assign-frame/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  (introduce-allocation-forms/wrapper
+   finalize-frame-locations/wrapper
+   select-instructions/wrapper
+   assign-frame/wrapper)
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      locals ulocals locate set! handle-overflow
+      lambda true false nop frame-conflict))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -176,9 +235,10 @@
 ;;-----------------------------------
 (define-language-wrapper uncover-register-conflict/wrapper (x) 
   (environment env)
-  (import (only (framework wrappers aux)
-             handle-overflow set! locals
-            lambda register-conflict true false nop))
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! locate locals ulocals
+      lambda register-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -187,9 +247,10 @@
 ;;-----------------------------------
 (define-language-wrapper assign-registers/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-             handle-overflow set! locate
-            lambda true false nop))
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! locate locals ulocals
+      spills frame-conflict lambda true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -198,9 +259,9 @@
 ;;-----------------------------------
 (define-language-wrapper discard-call-live/wrapper (x)
   (environment env)
-  (import (only (framework wrappers aux)
-             handle-overflow set! locate
-            true false nop)
+  (import
+    (only (framework wrappers aux)
+      handle-overflow set! locate true false nop)
     (only (chezscheme) lambda))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
