@@ -169,7 +169,7 @@
       ((verify-scheme) verify-scheme/wrapper)
       ((uncover-frame-conflict) uncover-frame-conflict/wrapper)
       ((introduce-allocation-forms) introduce-allocation-forms/wrapper)
-      ((select-instructions/wrapper) select-instructions/wrapper)
+      ((select-instructions) select-instructions/wrapper)
       ((uncover-register-conflict) uncover-register-conflict/wrapper)
       ((assign-registers) assign-registers/wrapper)
       ((assign-frame) assign-frame/wrapper)
@@ -238,7 +238,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set! locate locals ulocals
-      lambda register-conflict true false nop))
+      lambda register-conflict frame-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
