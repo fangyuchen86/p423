@@ -114,6 +114,8 @@
 (library
   (framework driver aux)
   (export
+    iterate
+    break/when
     verify-pass-specifications
     verify-iterated-pass-specifications
     &pass-verification-violation
@@ -129,6 +131,11 @@
     pass-verification-violation-input-result
     pass-verification-violation-output-result)
   (import (chezscheme))
+
+(define-syntax (iterate x)
+  (syntax-violation #f "misplaced aux keyword" x))
+(define-syntax (break/when x)
+  (syntax-violation #f "misplaced aux keyword" x))
 
 (define (verify-pass-specifications x)
   (syntax-case x (iterate break/when trace)
@@ -201,7 +208,6 @@
 (library
   (framework driver)
   (export
-    trace
     iterate
     break/when
     environment
@@ -361,42 +367,36 @@
 
 (define-syntax rewrite-specs
   (syntax-rules (iterate trace break/when %)
-    [(_ name name-passes wp (specs ...) (bindings ...))
+    [(_ name name-passes wp (specs ...) (b ...))
      (define-compiler-aux
-       ((sw (wp 'source)) bindings ...) (name name-passes sw) specs ...)]
+       ((sw (wp 'source)) b ...) (name name-passes sw) specs ...)]
     
-    [(_ name name-passes wp (ispecs ... (specs ...)) (bindings ...) % rest ...)
+    [(_ name name-passes wp ((specs ...) % ispecs ...) (b ...) % rest ...)
      (rewrite-specs name name-passes wp
-       ((iterate ispecs ...) specs ...)
-       (bindings ...)
-       rest ...)]
+       (specs ... (iterate ispecs ...)) (b ...) rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...)
+    [(_ name name-passes wp (specs ...) (b ...)
        (iterate spec1 spec2 ...) rest ...)
      (rewrite-specs name name-passes wp
-       ((specs ...))
-       (bindings ...)
-       spec1 spec2 ... % rest ...)]
+       ((specs ...) %) (b ...) spec1 spec2 ... % rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...)
+    [(_ name name-passes wp (specs ...) (b ...)
        (trace pass foo ...) rest ...)
      (rewrite-specs name name-passes wp
        (specs ... (trace pass w foo ...))
-       (bindings ... (w (wp 'pass)))
+       (b ... (w (wp 'pass)))
        rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...)
+    [(_ name name-passes wp (specs ...) (b ...)
        (break/when foo ...) rest ...)
      (rewrite-specs name name-passes wp
-       ((break/when foo ...) specs ...)
-       (bindings ...)
-       rest ...)]
+       (specs ... (break/when foo ...)) (b ...) rest ...)]
     
-    [(_ name name-passes wp (specs ...) (bindings ...)
+    [(_ name name-passes wp (specs ...) (b ...)
        (pass foo ...) rest ...)
      (rewrite-specs name name-passes wp
        (specs ... (pass w foo ...))
-       (bindings ... (w (wp 'pass)))
+       (b ... (w (wp 'pass)))
        rest ...)]))
 
 (define-syntax define-compiler
@@ -424,11 +424,6 @@
                   (printf "\nOutput: \n")
                   (pretty-print result)
                   (loop result (cdr passes) (and n (sub1 n)))))))))))))
-
-(define-syntax (iterate x)
-  (syntax-violation #f "misplaced aux keyword" x))
-(define-syntax (break/when x)
-  (syntax-violation #f "misplaced aux keyword" x))
 
 (define (verify-against inv input-res output output-res pass)
   (define (stringify x)
