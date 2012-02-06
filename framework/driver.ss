@@ -462,10 +462,15 @@
     (pretty-print
       (pass-verification-violation-input c)
       p))
+
+  (format p "Result of evauluating Input: ~a~n~n" (pass-verification-violation-input-result c))
+
   (format p "~8,8tPass Output:~n")
   (parameterize ([pretty-initial-indent 0])
     (pretty-print
       (pass-verification-violation-output c)
-      p)))
+      p))
+  (format p "Result of evauluating Output: ~a~n" (pass-verification-violation-output-result c))
+  )
 
 )
