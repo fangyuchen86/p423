@@ -11,7 +11,6 @@
     spills
     (rename (lambda-p423 lambda))
     register-conflict
-    locate
     true
     false
     nop
