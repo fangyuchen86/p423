@@ -440,15 +440,34 @@ Relop     -->  < | <= | = | >= | >
  | converting it into a pseudo-assembly code expression without nesting
  | with which it is easier to convert directly into x86-64 assembly.
  |#
-(define (flatten-program program)
-  (match program
-    [(letrec (,[block*] ...) ,[tail]) `(code ,tail ... ,block* ... ...)] ;program
-    [[,label (lambda () ,[body])] `(,label ,body ...)] ;block
-    [(begin ,effect* ... ,[tail]) `(,effect* ... ,tail ...)] ;tail
-    [(,jump) ;(guard (or (label? jump) (register? jump))) `((jump ,jump))] ;jump
-     `((jump ,jump))]
-    [,x x]
+(define-who (flatten-program program)
+  (define (Program program)
+    (define (Block block)
+      (match block
+        [[,lbl (lambda () ,[Tail -> tail])] `(,lbl ,tail ...)]
+        [,x (errorf who "invalid block: ~s" x) `(ERROR ,x)]
+      )
+    )
+    (define (Tail tail)
+      (define (Effect effect)
+        (match effect
+          [(set! . ,x) `(set! . ,x)]          
+          [,x (errorf who "invalid effect: ~s" x) `(ERROR ,x)]
+        )
+      )
+      (match tail
+        [(begin ,[Effect -> effect*] ... ,[Tail -> tail]) `(,effect* ... ,tail ...)]
+        [(if ,pred ,j1 ,j2) `((if ,pred ,j1 ,j2))]
+        [(,triv) `((,triv))]
+        [,x (errorf who "invalid tail: ~s" x) `(ERROR ,x)]
+      )
+    )
+    (match program
+      [(letrec (,[Block -> block*] ...) ,[Tail -> tail]) `(code ,tail ... ,block* ... ...)]
+      [,x (errorf who "invalid program: ~s" x) `(ERROR ,x)]
+    )
   )
+  (Program program)
 )
 
 

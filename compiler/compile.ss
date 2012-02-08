@@ -36,8 +36,9 @@
   (finalize-locations)
   (expose-frame-var)
   (expose-basic-blocks)
-  (flatten-program)
-  (generate-x86-64 assemble))
+  ;(flatten-program)
+  ;(generate-x86-64 assemble)
+  )
 
 ;; See the drivers.ss file for other options when defining a compiler
 
