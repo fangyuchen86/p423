@@ -443,6 +443,7 @@ Relop     -->  < | <= | = | >= | >
 (define-who (flatten-program program)
   (define (Program program)
     (define (Tail tail nxtLbl)
+      
       (define (Effect effect)
         (match effect
           [(set! . ,x) `(set! . ,x)]          
@@ -451,8 +452,14 @@ Relop     -->  < | <= | = | >= | >
       )
       (match tail
         [(begin ,effect* ... ,tail) `(,(map Effect effect*) ... ,(Tail tail nxtLbl) ...)]
-        [(if ,pred ,j1 ,j2) `((if ,pred ,j1 ,j2))]
-        [(,triv) `((,triv))]
+        [(if ,pred (,conseq) (,altern))
+         (cond 
+          [(eq? conseq nxtLbl) `((if (not ,pred) (,altern)))]
+          [(eq? altern nxtLbl) `((if ,pred (,conseq)))]
+          ;[else `((if ,pred (,conseq) (,altern)))]
+         )
+        ]
+        [(,triv) (if (eq? triv nxtLbl) '() `((,triv)))]
         [,x (errorf who "invalid tail: ~s" x) `(ERROR ,x)]
       )
     )
@@ -461,8 +468,10 @@ Relop     -->  < | <= | = | >= | >
        `(code 
          ,@(let loop ([tail tail] [lbl* lbl*] [tail* tail*])
              (if (null? lbl*)
-                 (Tail tail '())
-                 `(,(Tail tail lbl*) ... ,(car lbl*) ,(loop (car tail*) (cdr lbl*) (cdr tail*)) ...)
+                 (Tail tail #f)
+                 `(,(Tail tail (car lbl*)) ...
+                   ,(car lbl*)
+                   ,(loop (car tail*) (cdr lbl*) (cdr tail*)) ...)
              )
            )
          )
@@ -472,6 +481,7 @@ Relop     -->  < | <= | = | >= | >
   )
   (Program program)
 )
+; thank you again, kent.
 
 #| generate-x86-64 : pseudo-assembly-exp --> assembly-exp
  | generate-x86-64 takes an expression which closely resembles 
