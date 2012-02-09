@@ -1,6 +1,5 @@
 (import 
  (framework testing)
- (framework test-suite aux)
+ (framework test-suite)
  (compiler passes)
 )
-(load "../assign2/test2.ss")

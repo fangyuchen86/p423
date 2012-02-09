@@ -1,9 +1,8 @@
 #----------------------------------------------------------------------
 # File Makefile	
-# Written by Chris Frisz	
 # 	
-# Created 10 Jan 2012	
-# Last modified 10 Jan 2012	
+# Created 10 Jan 2012 by Chris Frisz
+# Modified 8 Feb 2012 by Samuel Waggoner
 # 	
 # This Makefile is intended for use with CSCI-P423 and runs the the
 # load_and_test.ss file. It may be extended to do other things as you
@@ -12,13 +11,23 @@
 
 #-- Variables --#
 SC=scheme
-TEST_FILE=load_and_test.ss
+TESTS=tests.ss
+LIBS=load_and_test.ss
+ENV=$(SC) $(LIBS)
+
+
 
 #-- Rules --#
 
 # The main point of this file is to run the tests
-all : test
+all : env
 
 # Run the testing on the compiler
-test : $(TEST_FILE)
-	$(SC) $(TEST_FILE)
+env : $(LIBS)
+	$(ENV)
+
+test : $(TESTS)
+	cat $(TESTS) | $(ENV)
+
+test-all :
+	echo "(test-all)" | $(ENV)
