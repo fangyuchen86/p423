@@ -442,13 +442,7 @@ Relop     -->  < | <= | = | >= | >
  |#
 (define-who (flatten-program program)
   (define (Program program)
-    (define (Block block)
-      (match block
-        [[,lbl (lambda () ,[Tail -> tail])] `(,lbl ,tail ...)]
-        [,x (errorf who "invalid block: ~s" x) `(ERROR ,x)]
-      )
-    )
-    (define (Tail tail)
+    (define (Tail tail nxtLbl)
       (define (Effect effect)
         (match effect
           [(set! . ,x) `(set! . ,x)]          
@@ -456,21 +450,28 @@ Relop     -->  < | <= | = | >= | >
         )
       )
       (match tail
-        [(begin ,[Effect -> effect*] ... ,[Tail -> tail]) `(,effect* ... ,tail ...)]
+        [(begin ,effect* ... ,tail) `(,(map Effect effect*) ... ,(Tail tail nxtLbl) ...)]
         [(if ,pred ,j1 ,j2) `((if ,pred ,j1 ,j2))]
         [(,triv) `((,triv))]
         [,x (errorf who "invalid tail: ~s" x) `(ERROR ,x)]
       )
     )
     (match program
-      [(letrec (,[Block -> block*] ...) ,[Tail -> tail]) `(code ,tail ... ,block* ... ...)]
+      [(letrec ([,lbl* (lambda () ,tail*)] ...) ,tail)
+       `(code 
+         ,@(let loop ([tail tail] [lbl* lbl*] [tail* tail*])
+             (if (null? lbl*)
+                 (Tail tail '())
+                 `(,(Tail tail lbl*) ... ,(car lbl*) ,(loop (car tail*) (cdr lbl*) (cdr tail*)) ...)
+             )
+           )
+         )
+      ]
       [,x (errorf who "invalid program: ~s" x) `(ERROR ,x)]
     )
   )
   (Program program)
 )
-
-
 
 #| generate-x86-64 : pseudo-assembly-exp --> assembly-exp
  | generate-x86-64 takes an expression which closely resembles 
