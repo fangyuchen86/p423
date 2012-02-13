@@ -15,6 +15,9 @@
    relop?
    triv?
    var?
+   error-unless
+   error-when
+   invalid
   )
   (import
     ;; Load Chez Scheme primitives:
@@ -45,6 +48,42 @@
   (define binops '(+ - * logand logor sra))
   (and (memq exp binops) #t)
 )
+
+(define-syntax error-unless
+  (syntax-rules ()
+    [(_ bool who string exp ...)
+     (unless bool
+       (errorf who string exp ...))
+    ]
+    [(_ bool string exp ...)
+     (unless bool
+       (errorf string exp ...))
+    ]
+  )
+)
+(define-syntax error-when
+  (syntax-rules ()
+    [(_ bool who string exp ...)
+     (when bool
+       (errorf who string exp ...))
+    ]
+    [(_ bool string exp ...)
+     (when bool
+       (errorf string exp ...))
+    ]
+  )
+)
+
+
+#;(define-syntax invalid
+  (syntax-rules ()
+    [(_ what exp)
+     (errorf "invalid ~s ~s" what exp)
+    ]
+  ))
+
+(define (invalid who what exp)
+  (errorf who "invalid ~s: ~s" what exp))
 
 #| loc? : exp --> boolean
  | loc? takes an expression and returns #t
