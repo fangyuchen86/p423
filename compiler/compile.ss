@@ -33,11 +33,11 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-compile-passes pass->wrapper)
   (verify-scheme)
-  ;(finalize-locations)
-  ;(expose-frame-var)
-  ;(expose-basic-blocks)
-  ;(flatten-program)
-  ;(generate-x86-64 assemble)
+  (finalize-locations)
+  (expose-frame-var)
+  (expose-basic-blocks)
+  (flatten-program)
+  (generate-x86-64 assemble)
   )
 
 ;; See the drivers.ss file for other options when defining a compiler

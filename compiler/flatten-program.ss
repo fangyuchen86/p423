@@ -39,7 +39,7 @@
          (cond 
           [(eq? conseq nxtLbl) `((if (not ,pred) (jump ,altern)))]
           [(eq? altern nxtLbl) `((if ,pred (jump ,conseq)))]
-          [else `((if ,pred (,conseq) (,altern)))]
+          [else `((if ,pred (jump ,conseq)) (jump ,altern))]
          )
         ]
         [(,triv) (if (eq? triv nxtLbl) '() `((jump ,triv)))]
