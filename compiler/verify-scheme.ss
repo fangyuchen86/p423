@@ -1,11 +1,11 @@
 ;; verify-scheme.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 assign3
+;; part of p423-sp12/srwaggon-p423 assign4
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012/2/11
+;; 2012/2/13
 
 #!chezscheme
 (library (compiler verify-scheme)
@@ -29,9 +29,9 @@
   | Consecutive unquoted members are not necessarily the same member,
   | so much as the same part of the grammar.
 
-  Program   -->  (letrec ([<label> (lambda () ,Body)]*) ,Body)
+  Program   -->  (letrec ([,label (lambda () ,Body)]*) ,Body)
 
-  Body      -->  (locate ([<uvar> ,Loc]*) ,Tail)
+  Body      -->  (locals (,uvar*) ,Tail)
 
   Tail      -->  (,Triv)
   |   (if ,Pred ,Tail ,Tail)
@@ -49,11 +49,11 @@
   |   (if ,Pred ,Effect ,Effect)
   |   (begin ,Effect* ,Effect)
 
-  Triv      -->  ,Var | <integer> | <label>
+  Triv      -->  ,Var | ,integer | ,label
 
-  Var       -->  ,<uvar> | ,Loc
+  Var       -->  ,uvar | ,Loc
 
-  Loc       -->  ,Register | <frame variable>
+  Loc       -->  ,Register | ,frame-var
 
   Register  -->  rax | rcx | rdx | rbx | rbp | rsi | rdi
   |   r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
@@ -150,7 +150,7 @@
                (errorf who "machine constraint violation: var must equal first triv: ~s ~s ~s" exp v t1))
              (when (and (frame-var? t1) (frame-var? t2))
                (errorf who "machine constraint violation: both trivs cannot be frame vars: ~s" exp))
-             (when (or (label? t1) (label? t1))
+             (when (or (label? t1) (label? t2))
                (errorf who "machine constraint violation: labels not allowed as operands to binops: ~s" exp))
              (when (number? t1)
                (unless (and (int32? t1) (exact? t1))
@@ -162,7 +162,7 @@
                (unless (or (register? v) (uvar? v))
                  (errorf who "machine constraint violation: * operator result must go directly into a register: ~s" exp)))
              (when (eq? b 'sra)
-               (unless (and (<= 0 t2) (>= 63 t2))
+               (unless (and (<= 0 t2) (<= t2 63))
                  (errorf who "machine constraint violation: second operand of sra operator must be 0 ≤ x ≤ 63: ~s" exp))))
            exp]
           [(set! ,[(Var uvarEnv) -> v] ,[(Triv label* uvarEnv) -> t])
@@ -251,14 +251,14 @@
     | error unless the expression qualifies as
     | a valid body.
     |
-    | Body --> (locate ([<uvar> ,Loc]*) ,Tail)
+    | Body --> (locals (,uvar* ...) ,Tail)
     |#
     (define (Body label*)
       (lambda (exp)
         (match exp
-          [(locate ([,uvar* ,[Loc -> loc*]]...) ,tail)
+          [(locate ([,uvar* ,[Loc -> loc]]) ,tail)
            (verify-x-list uvar* uvar? 'uvar)
-           ((Tail label* (map cons uvar* loc*)) tail)
+           ((Tail label* uvar*) tail)
            ]
           [,else (errorf who "invalid Body: ~s" else)]
           )
