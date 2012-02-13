@@ -10,24 +10,24 @@
 #----------------------------------------------------------------------
 
 #-- Variables --#
-SC=scheme
 TESTS=tests.ss
-LIBS=load_and_test.ss
-ENV=$(SC) $(LIBS)
+ENV=env.ss
 
 
 
 #-- Rules --#
 
-# The main point of this file is to run the tests
+# The main point of this file is to create the compiler environment
 all : env
 
-# Run the testing on the compiler
-env : $(LIBS)
-	$(ENV)
+# Create the compiler environment
+env : $(ENV)
+	scheme $(ENV)
 
+# Run custom tests on the compiler
 test : $(TESTS)
-	cat $(TESTS) | $(ENV)
+	cat $(TESTS) | scheme $(ENV)
 
+# Run the testing on the compiler
 test-all :
-	echo "(test-all)" | $(ENV)
+	echo "(test-all)" | scheme $(ENV)
