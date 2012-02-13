@@ -11,6 +11,7 @@
 (library (compiler helpers)
   (export
    binop?
+   loc?
    relop?
    triv?
    var?

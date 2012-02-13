@@ -94,6 +94,40 @@
       (if (uvar? v) (cdr (assq v env)) v)
     )
 
+    (define (Loc loc)
+      (unless (or (register? loc) (frame-var? loc))
+        (errorf who "invalid Loc ~s" loc))
+      loc
+    )
+
+
+    (define (Var uvarEnv)
+      (lambda (var)
+        (match var
+          [,v (guard (uvar? v))
+              (unless (assq v uvarEnv)
+                (errorf "unbound uvar ~s" v)) var]
+          [,v (guard (loc? v)) var]
+          [,else (errorf who "invalid Var ~s" var)]
+        )
+      )
+    )
+
+    (define (Triv label* uvarEnv)
+      (lambda (exp)
+        (match exp
+          [,x (guard (uvar? exp))
+              (unless (assq exp uvarEnv)
+                (errorf who "unbound uvar ~s" exp)) exp]
+          [,x (guard (label? exp))
+              (unless (memq exp label*)
+                (errorf who "unbound lable ~s" exp)) exp]
+          [,x (guard (triv? exp)) exp]
+          [,else (errorf who "invalid Triv ~s" exp)]
+        )
+      )
+    )
+
    #| Effect : exp --> void
     | Effect takes an expression and throws an error
     | unless the expression qualifies as an effect.
@@ -104,53 +138,49 @@
     |   (if ,Pred ,Effect ,Effect)
     |   (begin ,Effect* ,Effect)
     |#
-    (define (Effect uvarEnv)
+    (define (Effect label* uvarEnv)
       (lambda (exp)
         (match exp
           [(nop) exp]
-          [(set! ,v ,t)
-           (guard
-            (var? v)
-            (triv? t)
-            (let ([v (Var->Loc v uvarEnv)][t (Var->Loc t uvarEnv)])
-              #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
-              ;; v & t cannot both be frame-vars
-              (not (and (frame-var? v) (frame-var? t)))
-              ;; labels only fit in registers
-              (if (label? t) (register? v))
-              (if (integer? t)
-                  ;; ints must be 32bit or
-                  (or (int32? t)
-                      ;; int64's only fit into registers
-                      (and (register? v) (int64? t))))
-              )
-            )
+          [(set! ,[(Var uvarEnv) -> v] (,b ,[(Triv label* uvarEnv) -> t1] ,[(Triv label* uvarEnv) -> t2]))
+           (guard (or (binop? b) (relop? b)))
+           (let ([v (Var->Loc v uvarEnv)][t1 (Var->Loc t1 uvarEnv)][t2 (Var->Loc t2 uvarEnv)])
+             #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
+             (unless (equal? v t1)
+               (errorf who "machine constraint violation: var must equal first triv: ~s ~s ~s" exp v t1))
+             (when (and (frame-var? t1) (frame-var? t2))
+               (errorf who "machine constraint violation: both trivs cannot be frame vars: ~s" exp))
+             (when (or (label? t1) (label? t1))
+               (errorf who "machine constraint violation: labels not allowed as operands to binops: ~s" exp))
+             (when (number? t1)
+               (unless (and (int32? t1) (exact? t1))
+               (errorf who "machine constraint violation: Integer operands of binary operations must be an exact integer -2^31 ≤ n ≤ 2^31 - 1: ~s" exp)))
+             (when (number? t2)
+               (unless (and (int32? t2) (exact? t2))
+                 (errorf who "machine constraint violation: Integer operands of binary operations must be an exact integer -2^31 ≤ n ≤ 2^31 - 1: ~s" exp)))
+             (when (eq? b '*)
+               (unless (or (register? v) (uvar? v))
+                 (errorf who "machine constraint violation: * operator result must go directly into a register: ~s" exp)))
+             (when (eq? b 'sra)
+               (unless (and (<= 0 t2) (>= 63 t2))
+                 (errorf who "machine constraint violation: second operand of sra operator must be 0 ≤ x ≤ 63: ~s" exp))))
            exp]
-          [(set! ,v (,b ,t1 ,t2))
-           (guard
-            (var? v)
-            (or (binop? b) (relop? b))
-            (triv? t2)
-           #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
-            ;; (set! v (b t t0)) :: valid iff v equals t
-            (eq? v t1)
-            ;; t & t0 cannot both be frame-vars
-            (not (and (frame-var? t1) (frame-var? t2)))
-            ;; no labels as operands to binops
-            (not (or (label? t1) (label? t1)))
-            ;; Integer operands of binary operations must be
-            ;; an exact integer -2^31 ≤ n ≤ 2^31 - 1
-            (if (number? t1) (and (int32? t1) (exact? t1)))
-            (if (number? t2) (and (int32? t2) (exact? t2)))
-            ;; result from * operator must go into a register
-            (if (eq? b '*) (or (register? v) (uvar? v)))
-            ;; whatever.
-            (if (eq? b 'sra) (and (<= 0 t2) (>= 63 t2)))
-            )
+          [(set! ,[(Var uvarEnv) -> v] ,[(Triv label* uvarEnv) -> t])
+           (let ([v (Var->Loc v uvarEnv)][t (Var->Loc t uvarEnv)])
+             #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
+             (when (and (frame-var? v) (frame-var? t))
+               (errorf who "machine constraint violation: both trivs cannot be frame vars: ~s" exp))
+             (when (label? t)
+               (unless (register? v)
+                 (errorf who "machine constraint violation: labels only fit into registers: ~s" exp)))
+             (when (integer? t)
+               (unless (or (int32? t) (and (register? v) (int64? t)))
+                 (errorf who "machine constraint violation: 64bit ints only fit into registers, other ints must be 32: ~s" exp)))
+           )
            exp]
-          [(if ,[(Pred uvarEnv) -> p] ,[(Effect uvarEnv) -> e0] ,[(Effect uvarEnv) -> e1]) exp]
-          [(begin ,[(Effect uvarEnv) -> e*] ... ,[(Effect uvarEnv) -> e]) exp]
-          [,x (errorf who "invalid effect: ~s" x) x]
+          [(if ,[(Pred label* uvarEnv) -> p] ,[(Effect label* uvarEnv) -> e0] ,[(Effect label* uvarEnv) -> e1]) exp]
+          [(begin ,[(Effect label* uvarEnv) -> e*] ... ,[(Effect label* uvarEnv) -> e]) exp]
+          [,else (errorf who "invalid effect: ~s" else)]
           )
         )
       )
@@ -165,19 +195,27 @@
     |   (if ,Pred ,Pred ,Pred)
     |   (begin ,Effect* ,Pred)
     |#
-    (define (Pred uvarEnv)
+    (define (Pred label* uvarEnv)
       (lambda (exp)
         (match exp
-          [(true) (values)]
-          [(false) (values)]
-          [(,r ,t0 ,t1) (guard (relop? r)
-                               (triv? t0)
-                               (triv? t1)
-                               )
-           (values)]
-          [(if ,[p0] ,[p1] ,[p2]) (values)]
-          [(begin ,[(Effect uvarEnv) -> e*] ... ,[p]) exp]
-          [,x (errorf who "invalid pred: ~s" x)]
+          [(true) exp]
+          [(false) exp]
+          [(,r ,[(Triv label* uvarEnv) -> t0] ,[(Triv label* uvarEnv) -> t1]) (guard (relop? r))
+           (let ([t0 (Var->Loc t0 uvarEnv)][t1 (Var->Loc t1 uvarEnv)])
+             ;; stolen from a3 solution
+             (unless (or (and (register? t0)
+                              (or (register? t1)
+                                  (frame-var? t1)
+                                  (int32? t1)))
+                         (and (frame-var? t0)
+                              (or (register? t1)
+                                  (int32? t1))))
+               (errorf who "machine constraint violation: ~s" exp)))
+           ;; end stolen block
+           exp]
+          [(if ,[p0] ,[p1] ,[p2]) exp]
+          [(begin ,[(Effect label* uvarEnv) -> e*] ... ,[p]) exp]
+          [,else (errorf who "invalid Pred: ~s" else)]
           )
         )
       )
@@ -193,20 +231,15 @@
     |       |  (if ,Pred ,Tail ,Tail)
     |       |  (begin ,Effect* ,Tail)
     |#
-    (define (Tail lblEnv uvarEnv)
+    (define (Tail label* uvarEnv)
       (lambda (exp)
         (match exp
-          [(,t)
-           (guard (triv? t)
-                  ;; Labels must be bound
-                  (if (label? t) (and (member t lblEnv) #t))
-                  ;; architectural nuance.  Jump must be to label, not address.
-                  (not (integer? t))
-                  )
-           (values)]
-          [(if ,[(Pred uvarEnv) -> p] ,[(Tail lblEnv uvarEnv) -> t0] ,[(Tail lblEnv uvarEnv) -> t1]) exp]
-          [(begin ,[(Effect uvarEnv) -> e*] ... ,[(Tail lblEnv uvarEnv) -> t]) exp]
-          [,x (errorf who "invalid tail: ~s" x) x]
+          [(if ,[(Pred label* uvarEnv) -> p] ,[(Tail label* uvarEnv) -> t0] ,[(Tail label* uvarEnv) -> t1]) exp]
+          [(begin ,[(Effect label* uvarEnv) -> e*] ... ,[(Tail label* uvarEnv) -> t]) exp]
+          [(,[(Triv label* uvarEnv) -> t])
+           (when (integer? t)
+             (errorf who "machine constraint violation: jump must be to label, not address: ~s" exp))]
+          [,else (errorf who "invalid Tail: ~s" else)]
           )
         )
       )
@@ -223,11 +256,11 @@
     (define (Body label*)
       (lambda (exp)
         (match exp
-          [(locate ([,uvar* ,loc*]...) ,tail)
+          [(locate ([,uvar* ,[Loc -> loc*]]...) ,tail)
            (verify-x-list uvar* uvar? 'uvar)
            ((Tail label* (map cons uvar* loc*)) tail)
            ]
-          [,x (errorf who "invalid body: ~s" x)]
+          [,else (errorf who "invalid Body: ~s" else)]
           )
         )
       )
@@ -247,11 +280,11 @@
          ((Body label*) b0)
          (for-each (Body label*) bn)
          ]
-        [,x (errorf who "invalid syntax for Program: expected (letrec ([<label> (lambda () ,Body)]*) ,Body) but received ~s" x) x]
+        [,else (errorf who "invalid syntax for Program: expected (letrec ([<label> (lambda () ,Body)]*) ,Body) but received ~s" else)]
         )
       exp
       )
     (Program program)
     )
-
+  
   ) ;; End Library.
