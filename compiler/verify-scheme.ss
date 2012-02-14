@@ -33,7 +33,7 @@
 
   Body      -->  (locals (,uvar*) ,Tail)
 
-  Tail      -->  (,Triv)
+  Tail      -->  (,Triv ,Loc*)
   |   (if ,Pred ,Tail ,Tail)
   |   (begin ,Effect* ,Tail)
 
@@ -76,37 +76,59 @@
             (error-when (member id id*)  who "non-unique ~s suffix ~s" what id)
             (loop (cdr x*) (cons id id*)))))))
   
-  (define (Var->Loc v env)
-    (if (uvar? v) (cdr (memq v env)) v))
   
   (define (Loc loc)
-    (error-unless (or (register? loc) (frame-var? loc)) who "invalid Loc ~s" loc))
+    (error-unless (or (register? loc) (frame-var? loc)) who "invalid Loc ~s" loc) loc)
   
   (define (Var uvar*)
-    (lambda (exp)
-      (match exp
-        [,v (guard (uvar? v))
-            (error-unless (memq v uvar*) "unbound uvar ~s" v)]
-        [,v (guard (loc? v)) (void)]
-        [,else (invalid who 'Var else)])))
+    (lambda (v)
+      (when (uvar? v)
+        (error-unless (memq v uvar*) "unbound uvar ~s" v))
+      ;; specific optimism for a4: that uvars are uvars
+      (unless (or (uvar? v) (loc? v)) (invalid who 'Var v))
+      v))
   
   (define (Triv lbl* uvar*)
-    (lambda (exp)
-      (match exp
-        [,x (guard (uvar? exp))
-            (error-unless (memq exp uvar*) who "unbound uvar ~s" exp)]
-        [,x (guard (label? exp))
-            (error-unless (memq exp lbl*) who "unbound lable ~s" exp)]
-        [,x (guard (triv? exp)) (void)]
-        [,else (invalid who 'Triv exp)])))
+    (lambda (t)
+      (when (uvar? t)
+        (error-unless (memq t uvar*) who "unbound uvar ~s" t))
+      (when (label? t)
+        (error-unless (memq t lbl*) who "unbound lable ~s" t))
+      (unless (triv? t) (invalid who 'Triv t))
+      t))
   
   (define (Effect lbl* uvar*)
     (lambda (exp)
       (match exp
         [(nop) exp]
+
         [(set! ,[(Var uvar*) -> v] (,b ,[(Triv lbl* uvar*) -> t1] ,[(Triv lbl* uvar*) -> t2]))
+         (guard (or (binop? b) (relop? b)))
+         #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
+         (error-unless (equal? v t1)  who "machine constraint violation: var (~s) must equal first triv (~s): ~s" v t1 exp)
+         (error-when (and (frame-var? t1) (frame-var? t2)) who "machine constraint violation: both trivs (~s ~s) cannot be frame vars: ~s" t1 t2 exp)
+         (error-when (or (label? t1) (label? t1)) who "machine constraint violation: labels not allowed as operands to binops: ~s" exp)
+         (when (number? t1)
+           (error-unless (and (int32? t1) (exact? t1)) who "machine constraint violation: Integer operands of binary operations must be an exact integer -2^31 ≤ n ≤ 2^31 - 1: ~s" exp))
+         (when (number? t2)
+           (error-unless (and (int32? t2) (exact? t2)) who "machine constraint violation: Integer operands of binary operations must be an exact integer -2^31 ≤ n ≤ 2^31 - 1: ~s" exp))
+         (when (eq? b '*)
+           (error-unless (or (register? v) (uvar? v)) who "machine constraint violation: * operator result must go directly into a register: ~s" exp))
+         (when (eq? b 'sra)
+           (error-unless (and (<= 0 t2) (>= 63 t2)) who "machine constraint violation: second operand of sra operator must be 0 ≤ x ≤ 63: ~s" exp))
+         exp]
+        
+        [(set! ,[(Var uvar*) -> v] ,[(Triv lbl* uvar*) -> t])
+         #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
+         (error-when (and (frame-var? v) (frame-var? t)) who "machine constraint violation: both trivs cannot be frame vars: ~s" exp)
+         (when (label? t)
+           (error-unless (or (register? v) (uvar? v))  who "machine constraint violation: labels only fit into registers: ~s" exp))
+         (when (integer? t)
+           (error-unless (or (int32? t) (and (or (register? v) (uvar? v)) (int64? t))) who "machine constraint violation: 64bit ints only fit into registers, other ints must be 32: ~s" exp))
+           exp]
+        #;[(set! ,[(Var uvar*) -> v] (,b ,[(Triv lbl* uvar*) -> t1] ,[(Triv lbl* uvar*) -> t2]))
          (guard (or (binop? b) (relop? b))) exp]
-        [(set! ,[(Var uvar*) -> v] ,[(Triv lbl* uvar*) -> t]) exp]
+        #;[(set! ,[(Var uvar*) -> v] ,[(Triv lbl* uvar*) -> t]) exp]
         [(if ,[(Pred lbl* uvar*) -> p] ,[(Effect lbl* uvar*) -> e0] ,[(Effect lbl* uvar*) -> e1]) exp]
         [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[(Effect lbl* uvar*) -> e]) exp]
         [,else (invalid who 'Effect else)])))
@@ -116,10 +138,21 @@
       (match exp
         [(true) exp]
         [(false) exp]
-        [(,r ,[(Triv lbl* uvar*) -> t0] ,[(Triv lbl* uvar*) -> t1])
-         (error-unless (relop? r) who "invalid relop: ~s" exp)]
-        [(if ,[p0] ,[p1] ,[p2]) exp]
         [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[p]) (void)]
+        [(if ,[p0] ,[p1] ,[p2]) exp]
+        [(,r ,[(Triv lbl* uvar*) -> t0] ,[(Triv lbl* uvar*) -> t1])
+         (error-unless (relop? r) who "invalid relop: ~s" exp)
+         ;; specific optimism for a4
+         (error-unless (or (and (or (register? t0) (uvar? t0))
+                                (or (register? t1)
+                                    (frame-var? t1)
+                                    (int32? t1)
+                                    (uvar? t1)))
+                           (and (frame-var? t0)
+                                (or (register? t1)
+                                    (uvar? t1)
+                                    (int32? t1))))
+                       who "machine constraint violation: ~s" exp)]
         [,else (invalid who 'Pred else)])))
   
   (define (Tail lbl* uvar*)
@@ -127,7 +160,7 @@
       (match exp
         [(if ,[(Pred lbl* uvar*) -> p] ,[(Tail lbl* uvar*) -> t0] ,[(Tail lbl* uvar*) -> t1]) (void)]
         [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[(Tail lbl* uvar*) -> t]) (void)]
-        [(,[(Triv lbl* uvar*) -> t])
+        [(,[(Triv lbl* uvar*) -> t] ,[Loc -> loc*] ...)
          (error-when (integer? t) who "machine constraint violation: jump must be to label, not address: ~s" exp)]
         [,else (invalid who 'Tail else)])))
   
@@ -149,4 +182,4 @@
     exp)
   (Program program))
 
-) ;; End Library.
+) ;; End Library.137
