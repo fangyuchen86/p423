@@ -135,6 +135,9 @@
     pass->wrapper
     source/wrapper
     verify-scheme/wrapper
+    remove-complex-opera*/wrapper
+    flatten-set!/wrapper
+    impose-calling-conventions/wrapper
     uncover-frame-conflict/wrapper
     introduce-allocation-forms/wrapper
     select-instructions/wrapper
@@ -166,6 +169,9 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((remove-complex-opera*) remove-complex-opera*/wrapper)
+      ((flatten-set!) flatten-set!/wrapper)
+      ((impose-calling-conventions) impose-calling-conventions/wrapper)
       ((uncover-frame-conflict) uncover-frame-conflict/wrapper)
       ((introduce-allocation-forms) introduce-allocation-forms/wrapper)
       ((select-instructions) select-instructions/wrapper)
@@ -185,14 +191,30 @@
 ;;-----------------------------------
 ;; source/wrapper
 ;; verify-scheme/wrapper
+;; remove-complex-opera*/wrapper
+;; flatten-set!/wrapper
 ;;-----------------------------------
-(define-language-wrapper (source/wrapper verify-scheme/wrapper)
+(define-language-wrapper
+  (source/wrapper verify-scheme/wrapper
+   remove-complex-opera*/wrapper flatten-set!/wrapper)
   (x)
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow locals lambda true false nop))
+      set! handle-overflow locals true false nop)
+    (only (chezscheme) lambda))
   (reset-machine-state!)
+  ,x)
+
+;;-----------------------------------
+;; impose-calling-conventions/wrapper
+;;-----------------------------------
+(define-language-wrapper impose-calling-conventions/wrapper
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      set! handle-overflow lambda locals true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 

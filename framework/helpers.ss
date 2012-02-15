@@ -647,7 +647,7 @@
 (define frame-var->index
   (lambda (fv)
     (unless (frame-var? fv)
-      (errorf 'frame-var->index "~s is not a frame-var" ~s))
+      (errorf 'frame-var->index "~s is not a frame-var" fv))
     (getprop fv 'frame-index)))
 
 ; (define index->frame-var 
