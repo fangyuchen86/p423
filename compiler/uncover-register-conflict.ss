@@ -24,6 +24,10 @@ register conflicts so that they freeze to death and die.
 |# 
 (define-who (uncover-register-conflict program)
   
+  ;; graph-add! : symbol live-set conflict-graph --> conflict-graph
+  ;; graph-add! side-effects the given conflict-graph by set-cdr!'ing
+  ;; the given symbol's association's cdr as the union of its current
+  ;; cdr and the live-set.
   (define (graph-add! s conflicts graph)
     (when (uvar? s)
       (let ([assoc (assq s graph)])
@@ -32,14 +36,13 @@ register conflicts so that they freeze to death and die.
             (cons `(,s ,conflicts) graph))))
     graph)
                   
-          
-
   ;; handle-var : symbol live-set --> live-set
   ;; iff the var is a uvar or a register it is added
   ;; to the live-set before the live-set is returned.
   (define (handle-var var ls)
     (if (or (uvar? var) (register? var)) (set-cons var ls) ls))
 
+  ;; Effect : Effect* Effect conflict-graph live-set --> conflict-graph live-set
   (define (Effect effect* effect graph live)
     (match effect
       [(nop) (Effect* effect* graph live)]
@@ -96,7 +99,7 @@ register conflicts so that they freeze to death and die.
                      [(ga lsa) (Tail altern graph live)])
                      (values graph (union lsp lsc lsa)))]
       [(,triv ,loc* ...) (values graph (union loc* live))]
-      [,else (invalid who 'Tail else)])) ;; Tail
+      [,else (invalid who 'Tail else)]))
 
   (define (Body body) ;; Body --> Body
     (match body
@@ -104,20 +107,20 @@ register conflicts so that they freeze to death and die.
        (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]
                      [(live-set) '(rax rbp)]
                      [(graph lives) (Tail tail empty-graph live-set)])
-         `(locals ,uvar* (conflict-graph ,graph ,tail)))]
-      [,else (invalid who 'Body else)])) ;; Body
+         `(locals ,uvar* (register-conflict ,graph ,tail)))]
+      [,else (invalid who 'Body else)]))
 
   (define (Block block) ;; Block --> Block
     (match block
       [(,label (lambda () ,[Body -> body])) `(,label (lambda () ,body))]
-      [,else (invalid who 'Block else)])) ;; Block
+      [,else (invalid who 'Block else)]))
 
   (define (Program program) ;; Program --> Program
     (match program
       [(letrec (,[Block -> block*] ...) ,[Body -> body])
        `(letrec ,block* ,body)]
-      [,else (invalid who 'Program else)])) ;; Program
+      [,else (invalid who 'Program else)]))
 
-  (Program program)) ;; uncover-register-conflict
+  (Program program))
   
 ) ;; End Library
