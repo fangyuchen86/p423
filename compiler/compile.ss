@@ -1,11 +1,11 @@
 ;; compile.ss
 ;;
-;; part of p423-sp12/srwaggon-p423
+;; part of p423-sp12/srwaggon-p423 a4
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012/1/11
+;; 2012/2/15
 
 (library (compiler compile)
   (export p423-compile p423-compile-passes)
@@ -33,11 +33,12 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-compile-passes pass->wrapper)
   (verify-scheme)
-  (finalize-locations)
-  (expose-frame-var)
-  (expose-basic-blocks)
-  (flatten-program)
-  (generate-x86-64 assemble)
+  (uncover-register-conflict)
+  ;;  (finalize-locations)
+  ;;  (expose-frame-var)
+  ;;  (expose-basic-blocks)
+  ;;  (flatten-program)
+  ;;  (generate-x86-64 assemble)
   )
 
 ;; See the drivers.ss file for other options when defining a compiler

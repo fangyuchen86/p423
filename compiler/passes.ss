@@ -1,16 +1,17 @@
 ;; passes.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 assign3
+;; part of p423-sp12/srwaggon-p423 a4
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012/2/11
+;; 2012/2/15
 
 #!chezscheme
 (library (compiler passes)
   (export
     verify-scheme
+    uncover-register-conflict
     finalize-locations
     expose-frame-var
     expose-basic-blocks
@@ -25,6 +26,7 @@
     (framework helpers)
     ;; load compiler passes
     (compiler verify-scheme)
+    (compiler uncover-register-conflict)
     (compiler finalize-locations)
     (compiler expose-frame-var)
     (compiler expose-basic-blocks)
