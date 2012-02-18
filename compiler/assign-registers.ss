@@ -21,7 +21,7 @@
 ;; graph-remove takes a symbol and an association list
 ;; and removes the given symbol from the value for each
 ;; key in the list.
-(trace-define (graph-remove x graph)
+(define (graph-remove x graph)
   (map (lambda (y) (cons (car y) (remove x (cdr y)))) graph))
 
 
@@ -31,16 +31,16 @@
 ;; a list of uvar-conflict associations (conflict graph)
 ;; and attempts to safely associate each uvar with a register
 ;; for which it does not conflict.
-(trace-define (play-nice uvar* reg* conflict*)
+(define (play-nice uvar* reg* conflict*)
   (if (null? uvar*) '()
-      (let* ([uvar (low-degree uvar* reg* conflict*)] ;; pick low degree variable
+      (let* ([uvar (low-degree uvar* reg* conflict*)] ;; pick low degree variableOA
              [flict (assq uvar conflict*)]
              [reg (pick-reg reg* flict)])
         (append `((,uvar ,reg)) (play-nice (remove uvar uvar*) (remove reg reg*) (graph-remove uvar conflict*))))))
 
 ;; pick-reg takes a list of registers and a list of registers
 ;; and returns the car of the set-difference.
-(trace-define (pick-reg reg* conflicts)
+(define (pick-reg reg* conflicts)
   (let ([leftovers (difference reg* conflicts)])
     (if (null? leftovers)
         (errorf 'assign-registers "out of registers")
@@ -53,7 +53,7 @@
 ;; degree variable (of which it will return).
 ;; if no low-degree variable is found, it will return the
 ;; last variable seen.
-(trace-define (low-degree uvar* reg* conflict*)
+(define (low-degree uvar* reg* conflict*)
   (cond
     [(null? uvar*) #f]
     [else (let loop ([mem (car uvar*)][rem (cdr uvar*)])
@@ -62,7 +62,7 @@
               [(low-degree? mem reg* conflict*) mem]
               [else (loop (car rem) (cdr rem))]))]))
 
-(trace-define (low-degree? mem reg* conflict*)
+(define (low-degree? mem reg* conflict*)
   (let ([conflicts (assq mem conflict*)]) ;; either `(,x ...) or #f
     (if conflicts ;; aka, not false, as false implies no conflicts
         (< (length (cdr conflicts)) (length reg*))
