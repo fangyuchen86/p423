@@ -16,7 +16,7 @@
     nop
     frame-conflict)
   (import
-    (except (chezscheme) set!)
+    (except (chezscheme) set! letrec)
     (framework match)
     (framework helpers))
 
