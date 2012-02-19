@@ -388,7 +388,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set! return-point true false nop)
-    (only (chezschem) letrec))
+    (only (chezscheme) letrec))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
@@ -403,7 +403,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set!)
-    (only (chezschem) letrec))
+    (only (chezscheme) letrec))
   (call/cc
     (lambda (k)
       (set! ,return-address-register k)
@@ -418,7 +418,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set! code jump)
-    (only (chezschem) letrec))
+    (only (chezscheme) letrec))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
