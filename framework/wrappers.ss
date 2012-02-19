@@ -17,7 +17,8 @@
     frame-conflict
     new-frames
     return-point
-    compute-frame-size)
+    compute-frame-size
+    call-live)
   (import
     (except (chezscheme) set! letrec)
     (framework match)
@@ -152,20 +153,24 @@
                  ...
                  expr)))])))
 
-  (define-syntax return-point
-    (lambda (x)
-      (import scheme)
-      (syntax-case x ()
-        [(_ rplab expr)
-         (with-implicit (id frame-size)
-           #'(let ([top (fxsll frame-size word-shift)]
-                   [rplab (lambda args (void))])
-               (parameterize ([fp-offset (+ (fp-offset) top)])
-                 (set! ,frame-pointer-register
-                   (+ ,frame-pointer-register top))
-                 expr
-                 (set! ,frame-pointer-register
-                   (- ,frame-pointer-register top)))))])))
+(define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
+
+(define-syntax call-live
+    (syntax-rules ()
+      [(_ (x* ...) body) body]))
 
 (define (true) #t)
 
