@@ -9,7 +9,7 @@
 
 #!chezscheme
 (library (compiler uncover-register-conflict)
-  (export uncover-register-conflict graph-union update-graph graph-add!)
+  (export uncover-register-conflict)
   (import
    ;; Load Chez Scheme primitives:
    (chezscheme)
@@ -18,7 +18,14 @@
    (framework helpers)
    (compiler helpers))
 
+  
 
+#|
+uncover-register-conflict takes the blankets away from
+register conflicts so that they freeze to death and die.
+|# 
+(define-who (uncover-register-conflict program)
+  
   ;; graph-add! : symbol symbol conflict-graph --> conflict-graph
   ;; graph-add! side-effects the given conflict-graph by set-cdr!'ing
   ;; the given symbol's association's cdr as the set-cons of its current
@@ -54,14 +61,6 @@
                  [flicts (cdr assoc)])
              (update-graph s flicts g1))) g0)
     g1)
-  
-
-#|
-uncover-register-conflict takes the blankets away from
-register conflicts so that they freeze to death and die.
-|# 
-(define-who (uncover-register-conflict program)
-  
 
   ;; Effect : Effect* Effect conflict-graph live-set --> conflict-graph live-set
   (define (Effect effect* effect graph live)
@@ -78,7 +77,7 @@ register conflicts so that they freeze to death and die.
                      [(gc lsc) (Effect '() conseq graph live)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (Effect* effect* gp lsp))]
-      [(begin ,e* ...) (Effect* (append e* effect*) graph live)]
+      [(begin ,e* ...) (Effect* (append effect* e*) graph live)]
       [,else (invalid who 'Effect else)]))
 
   ;; Effect* : Effect* conflict-graph live-set --> conflict-graph live-set
