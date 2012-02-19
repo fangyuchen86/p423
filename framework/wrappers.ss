@@ -15,7 +15,6 @@
     false
     nop
     frame-conflict
-    new-frames
     compute-frame-size
     call-live)
   (import
@@ -132,26 +131,6 @@
          (letrec ([lab (lambda ignore (parameterize ([fp-offset 0]) lambda-body))] ...)
            (parameterize ([fp-offset 0]) letrec-body))])))
 
-(define-syntax new-frames
-    (lambda (x)
-      (import scheme)
-      (syntax-case x (return-point)
-        [(id ((nfv ...) ...) expr)
-         (with-implicit (id frame-size)
-           (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
-             #'(let ([top (fxsll frame-size word-shift)])
-                 (define-syntax nfv
-                   (identifier-syntax
-                     [id (mref (- ,frame-pointer-register (fp-offset))
-                           (fxsll (+ i frame-size) word-shift))]
-                     [(set! id e) 
-                      (mset! (- ,frame-pointer-register (fp-offset))
-                        (fxsll (+ i frame-size) word-shift)
-                        e)]))
-                 ...
-                 ...
-                 expr)))])))
-
 (define-syntax call-live
     (syntax-rules ()
       [(_ (x* ...) body) body]))
@@ -264,9 +243,28 @@
                  expr
                  (set! ,frame-pointer-register
                    (- ,frame-pointer-register top)))))])))
+  (define-syntax new-frames
+    (lambda (x)
+      (import scheme)
+      (syntax-case x (return-point)
+        [(id ((nfv ...) ...) expr)
+         (with-implicit (id frame-size)
+           (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+             #'(let ([top (fxsll frame-size word-shift)])
+                 (define-syntax nfv
+                   (identifier-syntax
+                     [id (mref (- ,frame-pointer-register (fp-offset))
+                           (fxsll (+ i frame-size) word-shift))]
+                     [(set! id e) 
+                      (mset! (- ,frame-pointer-register (fp-offset))
+                        (fxsll (+ i frame-size) word-shift)
+                        e)]))
+                 ...
+                 ...
+                 expr)))])))
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! locals new-frames true false nop))
+      handle-overflow letrec set! locals true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -291,10 +289,29 @@
                expr
                (set! ,frame-pointer-register
                  (- ,frame-pointer-register top)))))])))
+  (define-syntax new-frames
+    (lambda (x)
+      (import scheme)
+      (syntax-case x (return-point)
+        [(id ((nfv ...) ...) expr)
+         (with-implicit (id frame-size)
+           (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+             #'(let ([top (fxsll frame-size word-shift)])
+                 (define-syntax nfv
+                   (identifier-syntax
+                     [id (mref (- ,frame-pointer-register (fp-offset))
+                           (fxsll (+ i frame-size) word-shift))]
+                     [(set! id e) 
+                      (mset! (- ,frame-pointer-register (fp-offset))
+                        (fxsll (+ i frame-size) word-shift)
+                        e)]))
+                 ...
+                 ...
+                 expr)))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals spills call-live
-      frame-conflict new-frames true false nop))
+      frame-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -344,10 +361,29 @@
                expr
                (set! ,frame-pointer-register
                  (- ,frame-pointer-register top)))))])))
+  (define-syntax new-frames
+    (lambda (x)
+      (import scheme)
+      (syntax-case x (return-point)
+        [(id ((nfv ...) ...) expr)
+         (with-implicit (id frame-size)
+           (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+             #'(let ([top (fxsll frame-size word-shift)])
+                 (define-syntax nfv
+                   (identifier-syntax
+                     [id (mref (- ,frame-pointer-register (fp-offset))
+                           (fxsll (+ i frame-size) word-shift))]
+                     [(set! id e) 
+                      (mset! (- ,frame-pointer-register (fp-offset))
+                        (fxsll (+ i frame-size) word-shift)
+                        e)]))
+                 ...
+                 ...
+                 expr)))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals locate call-live 
-      new-frames frame-conflict true false nop))
+      frame-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
