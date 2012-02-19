@@ -9,7 +9,6 @@
     locate
     ulocals
     spills
-    (rename (lambda-p423 lambda))
     register-conflict
     true
     false
