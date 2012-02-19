@@ -1,11 +1,11 @@
 ;; verify-scheme.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 assign4
+;; part of p423-sp12/srwaggon-p423 a4
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012/2/13
+;; 2012 / 2 / 14
 
 #!chezscheme
 (library (compiler verify-scheme)
@@ -19,51 +19,51 @@
  (compiler helpers)
 )
   
- #| verify-scheme : program --> program
-  | verify-scheme takes an expression representing a program and verifies
-  | that it is an expression consiting solely of the provided language.
-  | A descrition of the language is as follows.
+#|
+verify-scheme : program --> program
+verify-scheme takes an expression representing a program and verifies
+that it is an expression consiting solely of the provided language.
+A descrition of the language is as follows.
 
-  | Defiant to scheme unquote syntax (or whatever it's called),
-  | unquotes here signify a member also found within the language.
-  | Consecutive unquoted members are not necessarily the same member,
-  | so much as the same part of the grammar.
+Defiant to scheme unquote syntax (or whatever it's called),
+unquotes here signify a member also found within the language.
+Consecutive unquoted members are not necessarily the same member,
+so much as the same part of the grammar.
 
-  Program   -->  (letrec ([,label (lambda () ,Body)]*) ,Body)
+Program   -->  (letrec ([,label (lambda () ,Body)]*) ,Body)
 
-  Body      -->  (locals (,uvar*) ,Tail)
+Body      -->  (locals (,uvar*) ,Tail)
 
-  Tail      -->  (,Triv ,Loc*)
-  |   (if ,Pred ,Tail ,Tail)
-  |   (begin ,Effect* ,Tail)
+Tail      -->  (,Triv ,Loc*)
+|   (if ,Pred ,Tail ,Tail)
+|   (begin ,Effect* ,Tail)
 
-  Pred      -->  (true)
-  |   (false)
-  |   (,Relop ,Triv ,Triv)
-  |   (if ,Pred ,Pred ,Pred)
-  |   (begin ,Effect* ,Pred)
+Pred      -->  (true)
+|   (false)
+|   (,Relop ,Triv ,Triv)
+|   (if ,Pred ,Pred ,Pred)
+|   (begin ,Effect* ,Pred)
 
-  Effect    -->  (nop)
-  |   (set! ,Var ,Triv)
-  |   (set! ,Var (,Binop ,Triv ,Triv))
-  |   (if ,Pred ,Effect ,Effect)
-  |   (begin ,Effect* ,Effect)
+Effect    -->  (nop)
+|   (set! ,Var ,Triv)
+|   (set! ,Var (,Binop ,Triv ,Triv))
+|   (if ,Pred ,Effect ,Effect)
+|   (begin ,Effect* ,Effect)
 
-  Triv      -->  ,Var | ,integer | ,label
+Triv      -->  ,Var | ,integer | ,label
 
-  Var       -->  ,uvar | ,Loc
+Var       -->  ,uvar | ,Loc
 
-  Loc       -->  ,Register | ,frame-var
+Loc       -->  ,Register | ,frame-var
 
-  Register  -->  rax | rcx | rdx | rbx | rbp | rsi | rdi
-  |   r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
+Register  -->  rax | rcx | rdx | rbx | rbp | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
 
-  Binop     -->  + | - | * | logand | logor | sra
+Binop     -->  + | - | * | logand | logor | sra
 
-  Relop     -->  < | <= | = | >= | >
+Relop     -->  < | <= | = | >= | >
 
-  | If the program matches the language, the expression is returned.
-  |#
+If the program validly conforms to the language, the expression is returned.
+|#
 
 (define-who (verify-scheme program)
 
@@ -126,9 +126,6 @@
          (when (integer? t)
            (error-unless (or (int32? t) (and (or (register? v) (uvar? v)) (int64? t))) who "machine constraint violation: 64bit ints only fit into registers, other ints must be 32: ~s" exp))
            exp]
-        #;[(set! ,[(Var uvar*) -> v] (,b ,[(Triv lbl* uvar*) -> t1] ,[(Triv lbl* uvar*) -> t2]))
-         (guard (or (binop? b) (relop? b))) exp]
-        #;[(set! ,[(Var uvar*) -> v] ,[(Triv lbl* uvar*) -> t]) exp]
         [(if ,[(Pred lbl* uvar*) -> p] ,[(Effect lbl* uvar*) -> e0] ,[(Effect lbl* uvar*) -> e1]) exp]
         [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[(Effect lbl* uvar*) -> e]) exp]
         [,else (invalid who 'Effect else)])))
@@ -174,12 +171,12 @@
   
   (define (Program exp)
     (match exp
-      [(letrec ([,lbl* (lambda () ,bn)] ...) ,b0)
+      [(letrec ([,lbl* (lambda () ,b*)] ...) ,b)
        (verify-x-list lbl* label? 'label)
-       ((Body lbl*) b0)
-       (for-each (Body lbl*) bn)]
+       ((Body lbl*) b)
+       (for-each (Body lbl*) b*)]
       [,else (invalid who 'Program else)])
     exp)
   (Program program))
 
-) ;; End Library.137
+) ;; End Library

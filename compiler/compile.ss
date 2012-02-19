@@ -34,11 +34,13 @@
 (define-compiler (p423-compile p423-compile-passes pass->wrapper)
   (verify-scheme)
   (uncover-register-conflict)
-  ;;  (finalize-locations)
-  ;;  (expose-frame-var)
-  ;;  (expose-basic-blocks)
-  ;;  (flatten-program)
-  ;;  (generate-x86-64 assemble)
+  (assign-registers)
+  (discard-call-live)
+  ;;(finalize-locations)
+  ;;(expose-frame-var)
+  ;;(expose-basic-blocks)
+  ;;(flatten-program)
+  ;;(generate-x86-64 assemble)
   )
 
 ;; See the drivers.ss file for other options when defining a compiler

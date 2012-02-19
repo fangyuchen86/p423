@@ -12,6 +12,8 @@
   (export
     verify-scheme
     uncover-register-conflict
+    assign-registers
+    discard-call-live
     finalize-locations
     expose-frame-var
     expose-basic-blocks
@@ -27,6 +29,8 @@
     ;; load compiler passes
     (compiler verify-scheme)
     (compiler uncover-register-conflict)
+    (compiler assign-registers)
+    (compiler discard-call-live)
     (compiler finalize-locations)
     (compiler expose-frame-var)
     (compiler expose-basic-blocks)
