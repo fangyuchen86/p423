@@ -196,8 +196,7 @@
 (library (framework helpers aux)
   (export
     word-shift
-    max-frame-var
-    fp-offset)
+    max-frame-var)
   (import (chezscheme))
 
 (define max-frame-var
@@ -247,7 +246,8 @@
     parameter-registers frame-pointer-register
     return-value-register return-address-register 
     allocation-pointer-register
-    define-who trace-define-who)
+    define-who trace-define-who
+    fp-offset)
   
   (import
     (chezscheme)
