@@ -50,6 +50,12 @@
       [(,[expr] ...) expr]
       [,x x])))
 
+(define compute-frame-size
+  (lambda (x)
+    (match x
+      [(,[fs*] ...) (apply max 0 fs*)]
+      [,x (if (frame-var? x) (+ (frame-var->index x) 1) 0)])))
+
 (define frame-size ,(compute-frame-size x))
 
 (define-syntax set!
