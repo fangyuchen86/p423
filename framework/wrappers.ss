@@ -16,7 +16,6 @@
     nop
     frame-conflict
     new-frames
-    return-point
     compute-frame-size
     call-live)
   (import
@@ -153,21 +152,6 @@
                  ...
                  expr)))])))
 
-(define-syntax return-point
-  (lambda (x)
-    (import scheme)
-    (syntax-case x ()
-      [(_ rplab expr)
-       (with-implicit (id frame-size)
-         #'(let ([top (fxsll frame-size word-shift)]
-                 [rplab (lambda args (void))])
-             (parameterize ([fp-offset (+ (fp-offset) top)])
-               (set! ,frame-pointer-register
-                 (+ ,frame-pointer-register top))
-               expr
-               (set! ,frame-pointer-register
-                 (- ,frame-pointer-register top)))))])))
-
 (define-syntax call-live
     (syntax-rules ()
       [(_ (x* ...) body) body]))
@@ -266,10 +250,23 @@
   (x)
   (environment env)
   (define frame-size ,(compute-frame-size x))
+  (define-syntax return-point
+    (lambda (x)
+      (import scheme)
+      (syntax-case x ()
+        [(_ rplab expr)
+         (with-implicit (id frame-size)
+           #'(let ([top (fxsll frame-size word-shift)]
+                   [rplab (lambda args (void))])
+               (parameterize ([fp-offset (+ (fp-offset) top)])
+                 (set! ,frame-pointer-register
+                   (+ ,frame-pointer-register top))
+                 expr
+                 (set! ,frame-pointer-register
+                   (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! locals new-frames
-      return-point true false nop))
+      handle-overflow letrec set! locals new-frames true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -280,10 +277,24 @@
   (x)
   (environment env)
   (define frame-size ,(compute-frame-size x))
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals spills call-live
-      frame-conflict new-frames return-point true false nop))
+      frame-conflict new-frames true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -292,10 +303,24 @@
 ;;-----------------------------------
 (define-language-wrapper uncover-register-conflict/wrapper (x) 
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locate locals ulocals frame-conflict
-      register-conflict return-point true false nop))
+      register-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -305,10 +330,24 @@
 (define-language-wrapper pre-assign-frame/wrapper (x)
   (environment env)
   (define frame-size ,(compute-frame-size x))
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals locate call-live 
-      new-frames frame-conflict return-point true false nop))
+      new-frames frame-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -317,10 +356,24 @@
 ;;----------------------------------
 (define-language-wrapper assign-new-frame/wrapper (x)
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals ulocals spills locate
-      frame-conflict return-point true false nop))
+      frame-conflict true false nop))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
@@ -339,10 +392,24 @@
    assign-frame/wrapper)
   (x)
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locate locals ulocals frame-conflict
-      return-point true false nop))
+      true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -351,10 +418,24 @@
 ;;-----------------------------------
 (define-language-wrapper assign-registers/wrapper (x)
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locate locals ulocals spills
-      frame-conflict return-point true false nop))
+      frame-conflict true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -363,9 +444,23 @@
 ;;-----------------------------------
 (define-language-wrapper discard-call-live/wrapper (x)
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! locate return-point true false nop))
+      handle-overflow letrec set! locate true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -374,9 +469,23 @@
 ;;-----------------------------------
 (define-language-wrapper finalize-locations/wrapper (x)
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! return-point true false nop))
+      handle-overflow letrec set! true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -385,9 +494,23 @@
 ;;-----------------------------------
 (define-language-wrapper expose-frame-var/wrapper (x)
   (environment env)
+  (define-syntax return-point
+  (lambda (x)
+    (import scheme)
+    (syntax-case x ()
+      [(_ rplab expr)
+       (with-implicit (id frame-size)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top)))))])))
   (import
     (only (framework wrappers aux)
-      handle-overflow set! return-point true false nop)
+      handle-overflow set! true false nop)
     (only (chezscheme) letrec))
   (call/cc 
     (lambda (k)
