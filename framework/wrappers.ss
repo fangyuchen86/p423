@@ -237,7 +237,9 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow locals true false nop))
+      handle-overflow set! locals true false nop)
+    (only (chezscheme)
+      letrec))
   (reset-machine-state!)
   ,x)
 
