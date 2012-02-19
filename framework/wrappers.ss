@@ -251,7 +251,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      frame-size handle-overflow letrec set! locals new-frames
+      handle-overflow letrec set! locals new-frames
       return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
@@ -264,7 +264,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      frame-size handle-overflow letrec set! locals spills call-live
+      handle-overflow letrec set! locals spills call-live
       frame-conflict new-frames return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
@@ -288,7 +288,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      frame-size handle-overflow letrec set! locals locate call-live
+      handle-overflow letrec set! locals locate call-live
       frame-conflict return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
