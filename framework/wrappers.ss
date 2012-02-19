@@ -50,6 +50,8 @@
       [(,[expr] ...) expr]
       [,x x])))
 
+(define frame-size ,(compute-frame-size x))
+
 (define-syntax set!
   (let ()
     (import (chezscheme))
