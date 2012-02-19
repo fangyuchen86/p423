@@ -16,7 +16,8 @@
     nop
     frame-conflict
     new-frames
-    return-point)
+    return-point
+    compute-frame-size)
   (import
     (except (chezscheme) set! letrec)
     (framework match)
@@ -55,8 +56,6 @@
     (match x
       [(,[fs*] ...) (apply max 0 fs*)]
       [,x (if (frame-var? x) (+ (frame-var->index x) 1) 0)])))
-
-(define frame-size ,(compute-frame-size x))
 
 (define-syntax set!
   (let ()
@@ -201,7 +200,7 @@
     (framework match)
     (framework helpers)
     (framework driver)
-    (only (framework wrappers aux) rewrite-opnds))
+    (only (framework wrappers aux) rewrite-opnds compute-frame-size))
 
 (define env
   (environment
@@ -259,6 +258,7 @@
 (define-language-wrapper impose-calling-conventions/wrapper
   (x)
   (environment env)
+  (define frame-size ,(compute-frame-size x))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals new-frames
@@ -272,6 +272,7 @@
 (define-language-wrapper uncover-frame-conflict/wrapper
   (x)
   (environment env)
+  (define frame-size ,(compute-frame-size x))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals spills call-live
@@ -296,6 +297,7 @@
 ;;----------------------------------
 (define-language-wrapper pre-assign-frame/wrapper (x)
   (environment env)
+  (define frame-size ,(compute-frame-size x))
   (import
     (only (framework wrappers aux)
       handle-overflow letrec set! locals locate call-live
