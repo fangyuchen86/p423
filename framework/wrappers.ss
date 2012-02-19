@@ -179,7 +179,8 @@
     flatten-set!/wrapper
     impose-calling-conventions/wrapper
     uncover-frame-conflict/wrapper
-    introduce-allocation-forms/wrapper
+    pre-assign-frame/wrapper
+    assign-new-frame/wrapper
     select-instructions/wrapper
     uncover-register-conflict/wrapper
     assign-registers/wrapper
