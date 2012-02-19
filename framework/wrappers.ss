@@ -201,7 +201,7 @@
 
 (define env
   (environment
-    '(except (chezscheme) set! lambda)
+    '(except (chezscheme) set! letrec)
     '(framework helpers)
     '(framework helpers frame-variables)))
 
@@ -242,8 +242,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow locals true false nop)
-    (only (chezscheme) lambda))
+      set! handle-overflow locals true false nop))
   (reset-machine-state!)
   ,x)
 
@@ -350,8 +349,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! locate return-point true false nop)
-    (only (chezscheme) lambda))
+      handle-overflow letrec set! locate return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -362,8 +360,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! return-point true false nop)
-    (only (chezscheme) lambda))
+      handle-overflow letrec set! return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -375,7 +372,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set! return-point true false nop)
-    (only (chezscheme) lambda))
+    (only (chezschem) letrec))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
@@ -390,7 +387,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set!)
-    (only (chezscheme) lambda))
+    (only (chezschem) letrec))
   (call/cc
     (lambda (k)
       (set! ,return-address-register k)
@@ -405,7 +402,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow set! code jump)
-    (only (chezscheme) lambda))
+    (only (chezschem) letrec))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
