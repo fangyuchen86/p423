@@ -286,7 +286,7 @@
 ;;----------------------------------
 ;; pre-assign-frame
 ;;----------------------------------
-(define-language-wrapper uncover-register-conflict/wrapper (x)
+(define-language-wrapper pre-assign-frame/wrapper (x)
   (environment env)
   (import
     (only (framework wrappers aux)
