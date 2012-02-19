@@ -1,9 +1,9 @@
-(library (p423 compiler verify-scheme)
+(library (compiler verify-scheme)
   (export verify-scheme)
   (import
     (chezscheme)
-    (p423 compiler match)
-    (p423 compiler helpers))
+    (framework match)
+    (framework helpers))
 
 ;;; Andy Keep, Kent Dybvig
 ;;; P423/P523
