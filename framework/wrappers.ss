@@ -122,6 +122,47 @@
                            (set! loc* (handle-overflow e))))] ...)
          body)])))
 
+(define-syntax letrec
+    (let ()
+      (import scheme)
+      (syntax-rules (lambda)
+        [(_ ([lab (lambda () lambda-body)] ...) letrec-body)
+         (letrec ([lab (lambda ignore (parameterize ([fp-offset 0]) lambda-body))] ...)
+           (parameterize ([fp-offset 0]) letrec-body))])))
+
+(define-syntax new-frames
+    (lambda (x)
+      (import scheme)
+      (syntax-case x (return-point)
+        [(_ ((nfv ...) ...) expr)
+         (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+           #'(let ([top (fxsll frame-size word-shift)])
+               (define-syntax nfv
+                 (identifier-syntax
+                   [id (mref (- ,frame-pointer-register (fp-offset))
+                         (fxsll (+ i frame-size) word-shift))]
+                   [(set! id e) 
+                    (mset! (- ,frame-pointer-register (fp-offset))
+                      (fxsll (+ i frame-size) word-shift)
+                      e)]))
+               ...
+               ...
+               expr))])))
+
+  (define-syntax return-point
+    (lambda (x)
+      (import scheme)
+      (syntax-case x ()
+        [(_ rplab expr)
+         #'(let ([top (fxsll frame-size word-shift)]
+                 [rplab (lambda args (void))])
+             (parameterize ([fp-offset (+ (fp-offset) top)])
+               (set! ,frame-pointer-register
+                 (+ ,frame-pointer-register top))
+               expr
+               (set! ,frame-pointer-register
+                 (- ,frame-pointer-register top))))])))
+
 (define (true) #t)
 
 (define (false) #f)
@@ -214,7 +255,8 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow lambda locals true false nop))
+      frame-size handle-overflow letrec set! locals new-frames
+      return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -226,28 +268,8 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow locals lambda true false nop frame-conflict))
-  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
-
-
-;;-----------------------------------
-;; introduce-allocation-forms/wrapper
-;; finalize-frame-locations/wrapper
-;; select-instructions/wrapper
-;; assign-frame/wrapper
-;;-----------------------------------
-(define-language-wrapper
-  (introduce-allocation-forms/wrapper
-   finalize-frame-locations/wrapper
-   select-instructions/wrapper
-   assign-frame/wrapper)
-  (x)
-  (environment env)
-  (import
-    (only (framework wrappers aux)
-      locals ulocals locate set! handle-overflow
-      lambda true false nop frame-conflict))
+      frame-size handle-overflow letrec set! locals spills call-live
+      frame-conflict new-frames return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -258,8 +280,54 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow set! locate locals ulocals
-      lambda register-conflict frame-conflict true false nop))
+      handle-overflow letrec set! locate locals ulocals frame-conflict
+      register-conflict return-point true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;----------------------------------
+;; pre-assign-frame
+;;----------------------------------
+(define-language-wrapper uncover-register-conflict/wrapper (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      frame-size handle-overflow letrec set! locals locate call-live
+      frame-conflict return-point true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;----------------------------------
+;; assign-new-frame
+;;----------------------------------
+(define-language-wrapper assign-new-frame/wrapper (x)
+  (environment env)
+  (import
+    (only (framework wrapper aux)
+      handle-overflow letrec set! locals ulocals spills locate
+      frame-conflict return-point true false nop))
+  (call/cc 
+    (lambda (k)
+      (set! ,return-address-register k)
+      ,x))
+  ,return-value-register)
+
+
+;;-----------------------------------
+;; finalize-frame-locations/wrapper
+;; select-instructions/wrapper
+;; assign-frame/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  (finalize-frame-locations/wrapper
+   select-instructions/wrapper
+   assign-frame/wrapper)
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec set! locate locals ulocals frame-conflict
+      return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -270,8 +338,8 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow set! locate locals ulocals
-      spills frame-conflict lambda true false nop))
+      handle-overflow letrec set! locate locals ulocals spills
+      frame-conflict return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -282,7 +350,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow set! locate true false nop)
+      handle-overflow letrec set! locate return-point true false nop)
     (only (chezscheme) lambda))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
@@ -294,7 +362,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow set! true false nop)
+      handle-overflow letrec set! return-point true false nop)
     (only (chezscheme) lambda))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
@@ -306,7 +374,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow true false nop)
+      handle-overflow set! return-point true false nop)
     (only (chezscheme) lambda))
   (call/cc 
     (lambda (k)
@@ -336,7 +404,7 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow code jump)
+      handle-overflow set! code jump)
     (only (chezscheme) lambda))
   (call/cc 
     (lambda (k)
