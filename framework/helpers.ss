@@ -559,7 +559,7 @@
 
 ;;; frame variables
 
-(define $fp-offset 0)
+(define fp-offset (make-parameter 0))
 
 (define-syntax (define-frame-variables x)
   (syntax-case x ()
