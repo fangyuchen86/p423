@@ -5,6 +5,7 @@
     rewrite-opnds
     code
     jump
+    (rename (p423-letrec letrec))
     locals
     locate
     ulocals
@@ -95,13 +96,6 @@
   (syntax-rules ()
     [(_ (x* ...) body) (let ([x* 0] ...) body)]))
 
-(define-syntax lambda-p423
-    (let ()
-      (import scheme)
-      (syntax-rules ()
-        [(lambda () body) (lambda arg-list body)]
-        [(lambda arg-list e e* ...) (lambda arg-list e e* ...)])))
-
 (define-syntax frame-conflict
   (syntax-rules ()
     [(_ ct body) body]))
@@ -121,7 +115,7 @@
                            (set! loc* (handle-overflow e))))] ...)
          body)])))
 
-(define-syntax letrec
+(define-syntax p423-letrec
     (let ()
       (import scheme)
       (syntax-rules (lambda)
