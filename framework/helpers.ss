@@ -600,10 +600,10 @@
                  (datum->syntax k frame-pointer-register))
                (syntax-case x (set id)
                  [(k id)
-                  #`(mref (- #,(fp #'k) $fp-offset)
+                  #`(mref (- #,(fp #'k) (fp-offset))
                           #,(fxsll index word-shift))]
                  [(k set exp)
-                  #`(mset! (- #,(fp #'k) $fp-offset)
+                  #`(mset! (- #,(fp #'k) (fp-offset))
                            #,(fxsll index word-shift)
                            exp)]))
              (define-syntax fvi
