@@ -307,8 +307,8 @@
   (define frame-size ,(compute-frame-size x))
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec set! locals locate call-live
-      frame-conflict return-point true false nop))
+      handle-overflow letrec set! locals locate call-live 
+      new-frames frame-conflict return-point true false nop))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
