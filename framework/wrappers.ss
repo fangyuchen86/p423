@@ -136,34 +136,36 @@
     (lambda (x)
       (import scheme)
       (syntax-case x (return-point)
-        [(_ ((nfv ...) ...) expr)
-         (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
-           #'(let ([top (fxsll frame-size word-shift)])
-               (define-syntax nfv
-                 (identifier-syntax
-                   [id (mref (- ,frame-pointer-register (fp-offset))
-                         (fxsll (+ i frame-size) word-shift))]
-                   [(set! id e) 
-                    (mset! (- ,frame-pointer-register (fp-offset))
-                      (fxsll (+ i frame-size) word-shift)
-                      e)]))
-               ...
-               ...
-               expr))])))
+        [(id ((nfv ...) ...) expr)
+         (with-implicit (id frame-size)
+           (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+             #'(let ([top (fxsll frame-size word-shift)])
+                 (define-syntax nfv
+                   (identifier-syntax
+                     [id (mref (- ,frame-pointer-register (fp-offset))
+                           (fxsll (+ i frame-size) word-shift))]
+                     [(set! id e) 
+                      (mset! (- ,frame-pointer-register (fp-offset))
+                        (fxsll (+ i frame-size) word-shift)
+                        e)]))
+                 ...
+                 ...
+                 expr)))])))
 
   (define-syntax return-point
     (lambda (x)
       (import scheme)
       (syntax-case x ()
         [(_ rplab expr)
-         #'(let ([top (fxsll frame-size word-shift)]
-                 [rplab (lambda args (void))])
-             (parameterize ([fp-offset (+ (fp-offset) top)])
-               (set! ,frame-pointer-register
-                 (+ ,frame-pointer-register top))
-               expr
-               (set! ,frame-pointer-register
-                 (- ,frame-pointer-register top))))])))
+         (with-implicit (id frame-size)
+           #'(let ([top (fxsll frame-size word-shift)]
+                   [rplab (lambda args (void))])
+               (parameterize ([fp-offset (+ (fp-offset) top)])
+                 (set! ,frame-pointer-register
+                   (+ ,frame-pointer-register top))
+                 expr
+                 (set! ,frame-pointer-register
+                   (- ,frame-pointer-register top)))))])))
 
 (define (true) #t)
 
