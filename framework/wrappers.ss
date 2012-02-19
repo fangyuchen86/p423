@@ -318,7 +318,7 @@
 (define-language-wrapper assign-new-frame/wrapper (x)
   (environment env)
   (import
-    (only (framework wrapper aux)
+    (only (framework wrappers aux)
       handle-overflow letrec set! locals ulocals spills locate
       frame-conflict return-point true false nop))
   (call/cc 
