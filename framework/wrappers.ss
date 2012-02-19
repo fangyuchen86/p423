@@ -14,7 +14,8 @@
     true
     false
     nop
-    frame-conflict)
+    frame-conflict
+    new-frames)
   (import
     (except (chezscheme) set! letrec)
     (framework match)
