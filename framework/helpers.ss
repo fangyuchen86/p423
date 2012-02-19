@@ -196,7 +196,8 @@
 (library (framework helpers aux)
   (export
     word-shift
-    max-frame-var)
+    max-frame-var
+    fp-offset)
   (import (chezscheme))
 
 (define max-frame-var
