@@ -32,12 +32,12 @@
     '(framework helpers)
     '(framework helpers frame-variables)))
 
-(trace-define-syntax wrap
+(define-syntax wrap
   (syntax-rules ()
     ((_ (define-syntax name body))
-     (define name `body))
+     (define name `(define-syntax name body)))
     ((_ (define name body))
-     (define name `body))))
+     (define name `(define name body)))))
 
 (define int64-in-range?
   (lambda (x)
@@ -73,17 +73,17 @@
       [(,[fs*] ...) (apply max 0 fs*)]
       [,x (if (frame-var? x) (+ (frame-var->index x) 1) 0)])))
 
-(define set!
-  `(define-syntax set!
-     (let ()
-       (import scheme)
-       (syntax-rules (,frame-pointer-register)
-         [(_ ,frame-pointer-register (op xxx n))
-          (begin
-            (fp-offset (op (fp-offset) n))
-            (set! ,frame-pointer-register (op xxx n)))]
-         [(_ x expr)
-          (set! x (handle-overflow expr))]))))
+(wrap
+  (define-syntax set!
+    (let ()
+      (import scheme)
+      (syntax-rules (,frame-pointer-register)
+        [(_ ,frame-pointer-register (op xxx n))
+         (begin
+           (fp-offset (op (fp-offset) n))
+           (set! ,frame-pointer-register (op xxx n)))]
+        [(_ x expr)
+         (set! x (handle-overflow expr))]))))
 
 (define-syntax code
   (lambda (x)
@@ -174,25 +174,25 @@
        ((_ lab expr)
         (let ([lab (lambda args (void))]) expr)))))
 
-(define new-frames
-  `(define-syntax new-frames
-     (lambda (x)
-       (import scheme)
-       (syntax-case x (return-point)
-         [(id ((nfv ...) ...) expr)
-          (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
-            #'(let ([top (fxsll frame-size word-shift)])
-                (define-syntax nfv
-                  (identifier-syntax
-                    [id (mref (- ,frame-pointer-register (fp-offset))
-                          (fxsll (+ i frame-size) word-shift))]
-                    [(set! id e) 
-                     (mset! (- ,frame-pointer-register (fp-offset))
-                       (fxsll (+ i frame-size) word-shift)
-                       e)]))
-                ...
-                ...
-                expr))]))))
+(wrap
+  (define-syntax new-frames
+    (lambda (x)
+      (import scheme)
+      (syntax-case x (return-point)
+        [(id ((nfv ...) ...) expr)
+         (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+           #'(let ([top (fxsll frame-size word-shift)])
+               (define-syntax nfv
+                 (identifier-syntax
+                   [id (mref (- ,frame-pointer-register (fp-offset))
+                         (fxsll (+ i frame-size) word-shift))]
+                   [(set! id e) 
+                    (mset! (- ,frame-pointer-register (fp-offset))
+                      (fxsll (+ i frame-size) word-shift)
+                      e)]))
+               ...
+               ...
+               expr))]))))
 
 (define-syntax call-live
   (syntax-rules ()
