@@ -416,9 +416,9 @@
        (let-values (((inp^ i^) (loop inp i)))
          (define-compiler-loop inp^ i^ . rest))))
     ((_ inp i (pass . foo) . rest)
-     (if (zero? i)
+     (if (and i (zero? i))
          (values inp i)
-         (let ((res (run-one-pass pass inp)) (i (sub1 i)))
+         (let ((res (run-one-pass pass inp)) (i (and i (sub1 i))))
            (define-compiler-loop res i . rest))))))
 
 (define-syntax define-iteration-loop
@@ -426,7 +426,7 @@
     ((_ inp i jump)
      (jump inp i))
     ((_ inp i jump (break/when pred?) . rest)
-     (if (zero? i)
+     (if (and i (zero? i))
          (values inp i)
          (let ((stop? (pred? inp)))
            (if stop?
@@ -437,7 +437,7 @@
                  (printf "\nBreak/when predicate ~s was not true, iteration continues\n" pred?)
                  (define-iteration-loop inp i jump . rest))))))
     ((_ inp i jump spec . rest)
-     (if (zero? i)
+     (if (and i (zero? i))
          (values inp i)
          (let-values (((inp^ i^) (define-compiler-loop inp i spec)))
            (define-iteration-loop inp^ i^ jump . rest))))))
