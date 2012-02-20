@@ -246,7 +246,8 @@
     parameter-registers frame-pointer-register
     return-value-register return-address-register 
     allocation-pointer-register
-    define-who trace-define-who)
+    define-who trace-define-who
+    fp-offset)
   
   (import
     (chezscheme)
@@ -559,7 +560,7 @@
 
 ;;; frame variables
 
-(define $fp-offset 0)
+(define fp-offset (make-parameter 0))
 
 (define-syntax (define-frame-variables x)
   (syntax-case x ()
@@ -599,10 +600,10 @@
                  (datum->syntax k frame-pointer-register))
                (syntax-case x (set id)
                  [(k id)
-                  #`(mref (- #,(fp #'k) $fp-offset)
+                  #`(mref (- #,(fp #'k) (fp-offset))
                           #,(fxsll index word-shift))]
                  [(k set exp)
-                  #`(mset! (- #,(fp #'k) $fp-offset)
+                  #`(mset! (- #,(fp #'k) (fp-offset))
                            #,(fxsll index word-shift)
                            exp)]))
              (define-syntax fvi

@@ -5,10 +5,14 @@
     (framework match)
     (framework helpers))
 
-;;;  verify-scheme accepts a signle value and verifies that the value
-;;;  is a valid program in the current source language.
+;;; Andy Keep, Kent Dybvig
+;;; P423/P523
+;;; Spring 2010
+
+;;; verify-scheme accepts a single value and verifies that the value
+;;; is a valid program in the current source language.
 ;;;
-;;;  Grammar for verify-scheme (assignment 6):
+;;; Grammar for verify-scheme (assignment 7):
 ;;;
 ;;;  Program --> (letrec ([<label> (lambda (<uvar>*) <Body>)]*) <Body>)
 ;;;  Body    --> (locals (<uvar>*) <Tail>)
@@ -24,29 +28,31 @@
 ;;;           |  (begin <Effect>* <Pred>)
 ;;;  Effect  --> (nop)
 ;;;           |  (set! <uvar> <Value>)
+;;;           |  (<Value> <Value>*)
 ;;;           |  (if <Pred> <Effect> <Effect>)
 ;;;           |  (begin <Effect>* <Effect>)
 ;;;  Value   --> <Triv>
 ;;;           |  (<binop> <Value> <Value>)
+;;;           |  (<Value> <Value>*)
 ;;;           |  (if <Pred> <Value> <Value>)
 ;;;           |  (begin <Effect>* <Value>)
-;;;  Triv    --> <uvar> | <int64> | <label>
-;;;  
-;;;  Where uvar is symbol.n where (n >= 0)
-;;;        label is symbol$n where (n >= 0)
-;;;        binop is +, -, *, logand, logor, or sra
-;;;        relop is <, >, <=, >=, =
+;;;  Triv    --> <uvar> | <integer> | <label>
 ;;;
-;;;  We still have a couple constraints based on our machine and
-;;;  testing framework. Namely, we expect calls target values to
-;;;  evaluate to uvars or labels, and we expect computations to be 
-;;;  done with uvars or integers.
+;;; Where uvar is symbol.n, n >= 0
+;;;       binop is mref, +, -, *, logand, logor, or sra
+;;;       relop is <, <=, =, >=, >
+;;;       label is symbol$n, n >= 0
 ;;;
-;;;  Note that we also expect the sra binop to have a uint6 in the
-;;;  second argument.
+;;; Machine constraints:
+;;;   - sra's second oeprand must be an exact integer k, 0 <= k <= 63
+;;;   - each other integer must be a exact integer n, -2^63 <= n <= 2^63-1
 ;;;
+;;; If the value is a valid program, verify-scheme returns the value
+;;; unchanged; otherwise it signals an error.
 
 (define-who verify-scheme
+  (define binops '(+ - * logand logor sra))
+  (define relops '(< > <= >= =))
   (define verify-x-list
     (lambda (x* x? what)
       (let loop ([x* x*] [idx* '()])
@@ -72,74 +78,82 @@
         (when (label? t)
           (unless (memq t label*)
             (error who "unbound label ~s" t)))
-        t)))
+        (values))))
   (define Value
     (lambda (label* uvar*)
       (lambda (val)
         (match val
-          [(if ,[(Pred label* uvar*) -> test] ,[conseq] ,[altern]) (void)]
-          [(begin ,[(Effect label* uvar*) -> ef*] ... ,[val]) (void)]
-          [(sra ,[x] ,y)
+          [(if ,[(Pred label* uvar*) ->] ,[] ,[]) (values)]
+          [(begin ,[(Effect label* uvar*) ->] ... ,[]) (values)]
+          [(sra ,[] ,y)
            (unless (uint6? y)
-             (error who "invalid sra operand ~s" y))]
-          [(,binop ,[x] ,[y])
-           (guard (memq binop '(+ - * logand logor sra)))
-           (void)]
-          [,[(Triv label* uvar*) -> tr] (void)]))))
+             (error who "invalid sra operand ~s" y))
+           (values)]
+          [(,binop ,[] ,[])
+           (guard (memq binop binops))
+           (values)]
+          [(,[] ,[] ...) (values)]
+          [,[(Triv label* uvar*) ->] (values)]))))
   (define Effect
     (lambda (label* uvar*)
       (lambda (ef)
         (match ef
-          [(nop) (void)]
-          [(if ,[(Pred label* uvar*) -> test] ,[conseq] ,[altern]) (void)]
-          [(begin ,[ef*] ... ,[ef]) (void)]
-          [(set! ,var ,[(Value label* uvar*) -> val])
+          [(nop) (values)]
+          [(if ,[(Pred label* uvar*) ->] ,[] ,[]) (values)]
+          [(begin ,[] ... ,[]) (values)]
+          [(set! ,var ,[(Value label* uvar*) ->])
            (unless (memq var uvar*)
-             (error who "assignment to unbound var ~s" var))]
+             (error who "assignment to unbound var ~s" var))
+           (values)]
+          [(,[(Value label* uvar*) ->] ,[(Value label* uvar*) ->] ...) (values)]
           [,ef (error who "invalid Effect ~s" ef)]))))
   (define Pred
     (lambda (label* uvar*)
       (lambda (pr)
         (match pr
-          [(true) (void)]
-          [(false) (void)]
-          [(if ,[test] ,[conseq] ,[altern]) (void)]
-          [(begin ,[(Effect label* uvar*) -> ef*] ... ,[pr]) (void)]
-          [(,relop ,[(Value label* uvar*) -> x] ,[(Value label* uvar*) -> y])
-           (unless (memq relop '(< > <= >= =))
-             (error who "invalid predicate operator ~s" relop))]
+          [(true) (values)]
+          [(false) (values)]
+          [(if ,[] ,[] ,[]) (values)]
+          [(begin ,[(Effect label* uvar*) ->] ... ,[]) (values)]
+          [(,relop ,[(Value label* uvar*) ->] ,[(Value label* uvar*) ->])
+           (guard (memq relop relops))
+           (values)]
           [,pr (error who "invalid Pred ~s" pr)]))))
   (define Tail
-    (lambda (tail label* uvar*)
-      (match tail
-        [(if ,[(Pred label* uvar*) -> test] ,[conseq] ,[altern]) (void)]
-        [(begin ,[(Effect label* uvar*) -> ef*] ... ,[tail]) (void)]
-        [(sra ,[(Value label* uvar*) -> x] ,y)
-         (unless (uint6? y)
-           (error who "invalid sra operand ~s" y))]
-        [(,binop ,[(Value label* uvar*) -> x] ,[(Value label* uvar*) -> y])
-         (guard (memq binop '(+ - * logand logor sra)))
-         (void)]
-        [(,[(Value label* uvar*) -> rator] 
-          ,[(Value label* uvar*) -> rand*] ...)
-         (void)]
-        [,[(Triv label* uvar*) -> triv] (void)])))
+    (lambda (label* uvar*)
+      (lambda (tail)
+        (match tail
+          [(if ,[(Pred label* uvar*) ->] ,[] ,[]) (values)]
+          [(begin ,[(Effect label* uvar*) ->] ... ,[]) (values)]
+          [(sra ,[(Value label* uvar*) ->] ,y)
+           (unless (uint6? y)
+             (error who "invalid sra operand ~s" y))
+           (values)]
+          [(,binop ,[(Value label* uvar*) ->] ,[(Value label* uvar*) ->])
+           (guard (memq binop binops))
+           (values)]
+          [(,[(Value label* uvar*) ->] ,[(Value label* uvar*) ->] ...) (values)]
+          [,[(Triv label* uvar*) ->] (values)]))))
   (define Body
-    (lambda (label*)
-      (lambda (bd fml*)
-        (match bd
+    (lambda (label* fml*)
+      (lambda (x)
+        (match x
           [(locals (,local* ...) ,tail)
            (let ([uvar* `(,fml* ... ,local* ...)])
              (verify-x-list uvar* uvar? 'uvar)
-             (Tail tail label* uvar*))]
-          [,bd (error who "invalid Body ~s" bd)]))))
+             ((Tail label* uvar*) tail)
+             (values))]
+          [,x (error who "invalid Body ~s" x)]))))
+  (define Lambda
+    (lambda (label*)
+      (lambda (x)
+        (match x
+          [(lambda (,fml* ...) ,[(Body label* fml*) ->]) (values)]
+          [,x (error who "invalid Lambda ~a" x)]))))
   (lambda (x)
     (match x
-      [(letrec ([,label* (lambda (,fml** ...) ,bd*)] ...) ,bd)
-       (verify-x-list label* label? 'label)
-       (map (lambda (fml*) (verify-x-list fml* uvar? 'formal)) fml**)
-       (for-each (Body label*) bd* fml**)
-       ((Body label*) bd '())]
+      [(letrec ([,label* ,[(Lambda label*) ->]] ...) ,[(Body label* '()) ->])
+       (verify-x-list label* label? 'label)]
       [,x (error who "invalid Program ~s" x)])
     x))
 
