@@ -35,8 +35,10 @@ register conflicts so that they freeze to death and die.
       (let ([assoc (assq s graph)])
         (if assoc
             (set-cdr! assoc (set-cons conflict (cdr assoc)))
-            (cons (list s conflict) graph))))
-    graph)
+            (cons (list s conflict) graph)
+    )))
+    graph
+  )
 
   ;; update-graph : symbol live-set conflict-graph --> conflict-graph
   ;; update-graph takes a symbol, a live set, and a conflict graph
@@ -44,10 +46,10 @@ register conflicts so that they freeze to death and die.
   (define (update-graph s conflicts graph)
     (let loop ([conflicts conflicts]
                [graph graph])
-      (cond
+      (cond                 #| This is here to keep pacman from walking through this code |#
         [(null? conflicts) graph]
-        [else (loop (cdr conflicts)
-                    (graph-add! (car conflicts) s (graph-add! s (car conflicts) graph)))])))
+        [else (loop (cdr conflicts) (graph-add!
+                                     (car conflicts) s (graph-add! s (car conflicts) graph)))])))
                   
   ;; handle-var : symbol live-set --> live-set
   ;; iff the var is a uvar or a register it is added
@@ -55,12 +57,18 @@ register conflicts so that they freeze to death and die.
   (define (handle-var var ls)
     (if (or (uvar? var) (register? var)) (set-cons var ls) ls))
 
-  (define (graph-union g0 g1)
+  ;; graph-union! : conflict-graph conflict-graph --> conflict-graph
+  ;; graph-union! takes two conflict graphs and combines their entries
+  ;; (key-value pairs where the value is a list of conflicts)
+  ;; into a single conflict-graph (through side-effecting the secondly
+  ;; provided conflict graph
+  (define (graph-union! g0 g1)
     (for-each (lambda (assoc)
            (let ([s (car assoc)]
                  [flicts (cdr assoc)])
              (update-graph s flicts g1))) g0)
-    g1)
+    g1 #|Pacman blocker|#
+  )
 
   ;; Effect : Effect* Effect conflict-graph live-set --> conflict-graph live-set
   (define (Effect effect* effect graph live)
@@ -100,9 +108,9 @@ register conflicts so that they freeze to death and die.
        (let*-values ([(ga lsa) (Pred altern Cgraph Agraph Clive Alive)]
                      [(gc lsc) (Pred conseq Cgraph Agraph Clive Alive)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
-         (values (graph-union Cgraph Agraph) (union lsp lsc lsa)))]
+         (values (graph-union! Cgraph Agraph) (union lsp lsc lsa)))]
       [(,relop ,triv0 ,triv1)
-       (values (graph-union Cgraph Agraph) (handle-var triv0 (handle-var triv1 (union Clive Alive))))]
+       (values (graph-union! Cgraph Agraph) (handle-var triv0 (handle-var triv1 (union Clive Alive))))]
       [,else (invalid who 'Pred else)]))
 
   ;; Tail : Tail conflict-graph live-set --> conflict-graph live-set
