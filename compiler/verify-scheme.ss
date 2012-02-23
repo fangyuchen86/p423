@@ -1,182 +1,155 @@
-;; verify-scheme.ss
-;;
-;; part of p423-sp12/srwaggon-p423 a4
-;; http://github.iu.edu/p423-sp12/srwaggon-p423
-;;
-;; Samuel Waggoner
-;; srwaggon@indiana.edu
-;; 2012 / 2 / 14
-
-#!chezscheme
 (library (compiler verify-scheme)
-(export verify-scheme)
-(import
- ;; Load Chez Scheme primitives:
- (chezscheme)
- ;; Load compiler framework:
- (framework match)
- (framework helpers)
- (compiler helpers)
-)
-  
-#|
-verify-scheme : program --> program
-verify-scheme takes an expression representing a program and verifies
-that it is an expression consiting solely of the provided language.
-A descrition of the language is as follows.
+  (export verify-scheme)
+  (import
+    (chezscheme)
+    (framework match)
+    (framework helpers))
 
-Defiant to scheme unquote syntax (or whatever it's called),
-unquotes here signify a member also found within the language.
-Consecutive unquoted members are not necessarily the same member,
-so much as the same part of the grammar.
+;;; verify-scheme accept a single value and verifies that the value
+;;; is a valid program in the current source language.
+;;;
+;;; Grammar for verify-scheme (assignment 4):
+;;;
+;;; Program --> (letrec ((<label> (lambda () <Body>))*) <Body>)
+;;; Body    --> (locals (<uvar>*) <Tail>)
+;;; Tail    --> (<Triv> <Var>*)
+;;;	  |  (begin <Effect>* <Tail>)
+;;;	  |  (if <Pred> <Tail> <Tail>)
+;;; Pred    --> (true)
+;;;	  |  (false)
+;;;	  |  (<relop> <Triv> <Triv>)
+;;;	  |  (begin <Effect*> <Pred>)
+;;;	  |  (if <Pred> <Pred> <Pred>)
+;;; Effect  --> (nop)
+;;;	  |  (set! <Var> <Triv>)
+;;;	  |  (set! <Var> (<binop> <Triv> <Triv>))
+;;;	  |  (begin <Effect>+)
+;;;	  |  (if <Pred> <Pred> <Pred>)
+;;; Var     --> <uvar>
+;;;	  |  <frame-var>
+;;;	  |  <register>
+;;; Triv    --> <Var>
+;;;	  |  <int>
+;;;	  |  <label>
+;;;
+;;; Where uvar is symbol.n where (n >= 0)
+;;;	  binop is +, -, *, logand, logor, or sra
+;;;	  relop is <, <=, or =
+;;;	  register is rax, rcx, rdx, rbx, rbp, rdi, rsi, r8,
+;;;		   r9, r10, r11, r12, r13, r14, or r15
+;;;	  label is symbol$n where (n >= 0)
+;;;	  frame-var is fvn where (n >= 0)
+;;;
+;;; If the value is a valid program, verify scheme returns the value
+;;; unchanged; otherwise it signals an error.
+;;;
+;;; At this level in the compiler verify-scheme no longer checks machine
+;;; constraints, as select-instructions should now perform instruction
+;;; selection and correctly select which instruction to use based on the
+;;; machine constraints.
+;;;
 
-Program   -->  (letrec ([,label (lambda () ,Body)]*) ,Body)
+  (define-who verify-scheme
+    (define verify-x-list
+      (lambda (x* x? what)
+        (let loop ([x* x*] [idx* '()])
+          (unless (null? x*)
+            (let ([x (car x*)] [x* (cdr x*)])
+              (unless (x? x)
+                (errorf who "invalid ~s ~s found" what x))
+              (let ([idx (extract-suffix x)])
+                (when (member idx idx*)
+                  (errorf who "non-unique ~s suffix ~s found" what idx))
+                (loop x* (cons idx idx*))))))))
+    (define Var
+      (lambda (uvar*)
+        (lambda (var)
+          (unless (or (register? var) (frame-var? var) (uvar? var))
+            (errorf who "invalid variable ~s" var))
+          (when (uvar? var)
+            (unless (memq var uvar*)
+              (errorf who "unbound uvar ~s" var)))
+          var)))
+    (define Triv
+      (lambda (label* uvar*)
+        (lambda (t)
+          (unless (or (register? t) (frame-var? t) (label? t) (uvar? t)
+                      (and (integer? t) (exact? t)))
+            (errorf who "invalid Triv ~s" t))
+          (when (and (integer? t) (exact? t))
+            (unless (int64? t)
+              (errorf who "integer out of 64-bit range ~s" t)))
+          (when (uvar? t)
+            (unless (memq t uvar*)
+              (errorf who "unbound uvar ~s" t)))
+          (when (label? t)
+            (unless (memq t label*)
+              (errorf who "unbound label ~s" t)))
+          t)))
+    (define Pred
+      (lambda (label* uvar*)
+        (lambda (pr)
+          (match pr
+            [(true) (void)]
+            [(false) (void)]
+            [(begin ,[(Effect label* uvar*) -> ef*] ... ,[pr]) (void)]
+            [(if ,[test] ,[conseq] ,[altern]) (void)]
+            [(,relop ,[(Triv label* uvar*) -> x]
+               ,[(Triv label* uvar*) -> y])
+             (unless (memq relop '(= < <= > >=))
+               (errorf who "invalid predicate operator ~s" relop))]
+            [,pr (errorf who "invalid Pred ~s" pr)]))))
+    (define Effect
+      (lambda (label* uvar*)
+        (lambda (ef)
+          (match ef
+            [(nop) (void)]
+            [(set! ,[(Var uvar*) -> x]
+               (sra ,[(Triv label* uvar*) -> y]
+                 ,[(Triv label* uvar*) -> z]))
+             (unless (uint6? z)
+               (errorf who "invalid attempt to sra by ~s" z))]
+            [(set! ,[(Var uvar*) -> x]
+               (,binop ,[(Triv label* uvar*) -> y]
+                 ,[(Triv label* uvar*) -> z]))
+             (unless (memq binop '(+ - logand logor * sra))
+               (errorf who "invalid effect operator ~s" binop))]
+            [(set! ,[(Var uvar*) -> x] ,[(Triv label* uvar*) -> y]) (void)]
+            [(begin ,[ef] ,[ef*] ...) (void)]
+            [(if ,[(Pred label* uvar*) -> test] ,[conseq] ,[altern])
+             (void)]
+            [,ef (errorf who "invalid Effect ~s" ef)]))))
+    (define Tail
+      (lambda (label* uvar*)
+        (lambda (tail)
+          (match tail
+            [(begin ,[(Effect label* uvar*) -> ef*] ... ,[tail]) (void)]
+            [(if ,[(Pred label* uvar*) -> test] ,[conseq] ,[altern])
+             (void)]
+            [(,[(Triv label* uvar*) -> t] ,[(Var uvar*)-> live-out*] ...)
+             (unless (andmap
+                       (lambda (x)
+                         (or (frame-var? x) (register? x))) live-out*)
+               (errorf who
+                 "live out list contains invalid variable ~s" live-out*))
+             (when (integer? t)
+               (errorf who "~s attempt to apply integer" `(,t)))]
+            [,tail (errorf who "invalid Tail ~s" tail)]))))
+    (define Body
+      (lambda (label*)
+        (lambda (bd)
+          (match bd
+            [(locals (,uvar* ...) ,tail)
+             (verify-x-list `(,uvar* ...) uvar? 'uvar)
+             ((Tail label* uvar*) tail)]
+            [,bd (errorf who "invalid Body ~s" bd)]))))
+    (lambda (x)
+      (match x
+        [(letrec ([,label* (lambda () ,bd*)] ...) ,bd)
+         (verify-x-list label* label? 'label)
+         (for-each (Body label*) bd*)
+         ((Body label*) bd)]
+        [,x (errorf who "invalid Program ~s" x)])
+      x))
 
-Body      -->  (locals (,uvar*) ,Tail)
-
-Tail      -->  (,Triv ,Loc*)
-|   (if ,Pred ,Tail ,Tail)
-|   (begin ,Effect* ,Tail)
-
-Pred      -->  (true)
-|   (false)
-|   (,Relop ,Triv ,Triv)
-|   (if ,Pred ,Pred ,Pred)
-|   (begin ,Effect* ,Pred)
-
-Effect    -->  (nop)
-|   (set! ,Var ,Triv)
-|   (set! ,Var (,Binop ,Triv ,Triv))
-|   (if ,Pred ,Effect ,Effect)
-|   (begin ,Effect* ,Effect)
-
-Triv      -->  ,Var | ,integer | ,label
-
-Var       -->  ,uvar | ,Loc
-
-Loc       -->  ,Register | ,frame-var
-
-Register  -->  rax | rcx | rdx | rbx | rbp | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
-
-Binop     -->  + | - | * | logand | logor | sra
-
-Relop     -->  < | <= | = | >= | >
-
-If the program validly conforms to the language, the expression is returned.
-|#
-
-(define-who (verify-scheme program)
-
-  (define (verify-x-list x* x? what)
-    (let loop ([x* x*] [id* '()])
-      (unless (null? x*)
-        (let ([x (car x*)])
-          (error-unless (x? x) who "invalid ~s ~s" what x)
-          (let ([id (extract-suffix x)])
-            (error-when (member id id*)  who "non-unique ~s suffix ~s" what id)
-            (loop (cdr x*) (cons id id*)))))))
-  
-  
-  (define (Loc loc)
-    (error-unless (or (register? loc) (frame-var? loc)) who "invalid Loc ~s" loc) loc)
-  
-  (define (Var uvar*)
-    (lambda (v)
-      (when (uvar? v)
-        (error-unless (memq v uvar*) "unbound uvar ~s" v))
-      ;; specific optimism for a4: that uvars are uvars
-      (unless (or (uvar? v) (loc? v)) (invalid who 'Var v))
-      v))
-  
-  (define (Triv lbl* uvar*)
-    (lambda (t)
-      (when (uvar? t)
-        (error-unless (memq t uvar*) who "unbound uvar ~s" t))
-      (when (label? t)
-        (error-unless (memq t lbl*) who "unbound lable ~s" t))
-      (unless (triv? t) (invalid who 'Triv t))
-      t))
-  
-  (define (Effect lbl* uvar*)
-    (lambda (exp)
-      (match exp
-        [(nop) exp]
-
-        [(set! ,[(Var uvar*) -> v] (,b ,[(Triv lbl* uvar*) -> t1] ,[(Triv lbl* uvar*) -> t2]))
-         (guard (or (binop? b) (relop? b)))
-         #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
-         (error-unless (equal? v t1)  who "machine constraint violation: var (~s) must equal first triv (~s): ~s" v t1 exp)
-         (error-when (and (frame-var? t1) (frame-var? t2)) who "machine constraint violation: both trivs (~s ~s) cannot be frame vars: ~s" t1 t2 exp)
-         (error-when (or (label? t1) (label? t1)) who "machine constraint violation: labels not allowed as operands to binops: ~s" exp)
-         (when (number? t1)
-           (error-unless (and (int32? t1) (exact? t1)) who "machine constraint violation: Integer operands of binary operations must be an exact integer -2^31 ≤ n ≤ 2^31 - 1: ~s" exp))
-         (when (number? t2)
-           (error-unless (and (int32? t2) (exact? t2)) who "machine constraint violation: Integer operands of binary operations must be an exact integer -2^31 ≤ n ≤ 2^31 - 1: ~s" exp))
-         (when (eq? b '*)
-           (error-unless (or (register? v) (uvar? v)) who "machine constraint violation: * operator result must go directly into a register: ~s" exp))
-         (when (eq? b 'sra)
-           (error-unless (and (<= 0 t2) (>= 63 t2)) who "machine constraint violation: second operand of sra operator must be 0 ≤ x ≤ 63: ~s" exp))
-         exp]
-        
-        [(set! ,[(Var uvar*) -> v] ,[(Triv lbl* uvar*) -> t])
-         #| ARCHITECTURE SPECIFIC CONSTRAINTS |#
-         (error-when (and (frame-var? v) (frame-var? t)) who "machine constraint violation: both trivs cannot be frame vars: ~s" exp)
-         (when (label? t)
-           (error-unless (or (register? v) (uvar? v))  who "machine constraint violation: labels only fit into registers: ~s" exp))
-         (when (integer? t)
-           (error-unless (or (int32? t) (and (or (register? v) (uvar? v)) (int64? t))) who "machine constraint violation: 64bit ints only fit into registers, other ints must be 32: ~s" exp))
-           exp]
-        [(if ,[(Pred lbl* uvar*) -> p] ,[(Effect lbl* uvar*) -> e0] ,[(Effect lbl* uvar*) -> e1]) exp]
-        [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[(Effect lbl* uvar*) -> e]) exp]
-        [,else (invalid who 'Effect else)])))
-  
-  (define (Pred lbl* uvar*)
-    (lambda (exp)
-      (match exp
-        [(true) exp]
-        [(false) exp]
-        [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[p]) (void)]
-        [(if ,[p0] ,[p1] ,[p2]) exp]
-        [(,r ,[(Triv lbl* uvar*) -> t0] ,[(Triv lbl* uvar*) -> t1])
-         (error-unless (relop? r) who "invalid relop: ~s" exp)
-         ;; specific optimism for a4
-         (error-unless (or (and (or (register? t0) (uvar? t0))
-                                (or (register? t1)
-                                    (frame-var? t1)
-                                    (int32? t1)
-                                    (uvar? t1)))
-                           (and (frame-var? t0)
-                                (or (register? t1)
-                                    (uvar? t1)
-                                    (int32? t1))))
-                       who "machine constraint violation: ~s" exp)]
-        [,else (invalid who 'Pred else)])))
-  
-  (define (Tail lbl* uvar*)
-    (lambda (exp)
-      (match exp
-        [(if ,[(Pred lbl* uvar*) -> p] ,[(Tail lbl* uvar*) -> t0] ,[(Tail lbl* uvar*) -> t1]) (void)]
-        [(begin ,[(Effect lbl* uvar*) -> e*] ... ,[(Tail lbl* uvar*) -> t]) (void)]
-        [(,[(Triv lbl* uvar*) -> t] ,[Loc -> loc*] ...)
-         (error-when (integer? t) who "machine constraint violation: jump must be to label, not address: ~s" exp)]
-        [,else (invalid who 'Tail else)])))
-  
-  (define (Body lbl*)
-    (lambda (exp)
-      (match exp
-        [(locals (,uvar* ...) ,tail)
-         (verify-x-list `(,uvar* ...) uvar? 'uvar)
-         ((Tail lbl* uvar*) tail)]
-        [,else (invalid who 'Body else)])))
-  
-  (define (Program exp)
-    (match exp
-      [(letrec ([,lbl* (lambda () ,b*)] ...) ,b)
-       (verify-x-list lbl* label? 'label)
-       ((Body lbl*) b)
-       (for-each (Body lbl*) b*)]
-      [,else (invalid who 'Program else)])
-    exp)
-  (Program program))
-
-) ;; End Library
+  )
