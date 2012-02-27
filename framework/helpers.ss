@@ -248,7 +248,7 @@
     return-value-register return-address-register 
     allocation-pointer-register
     define-who trace-define-who
-    fp-offset)
+    fp-offset check-heap-overflow)
   
   (import
     (chezscheme)
@@ -286,7 +286,7 @@
 ;;; machine state
 ; (module (word-shift word-size registers register?
 ;          rax rcx rdx rbx rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15
-;          heap-size stack-size $check-heap-overflow mref mset!
+;          heap-size stack-size check-heap-overflow mref mset!
 ; 	 reset-machine-state!  parameter-registers
 ; 	 frame-pointer-register return-value-register
 ; 	 return-address-register allocation-pointer-register)
@@ -361,7 +361,7 @@
           (set! the-stack (make-vector n)))
         n)))
 
-  (define $check-heap-overflow
+  (define check-heap-overflow
     (lambda (ap)
       (when (> (fxsrl (- ap heap-offset) word-shift) (vector-length the-heap))
         (error 'alloc "heap overflow"))))
