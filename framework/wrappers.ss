@@ -214,6 +214,7 @@
     remove-complex-opera*/wrapper
     flatten-set!/wrapper
     impose-calling-conventions/wrapper
+    expose-allocation-pointer/wrapper
     uncover-frame-conflict/wrapper
     pre-assign-frame/wrapper
     assign-new-frame/wrapper
@@ -225,6 +226,7 @@
     discard-call-live/wrapper
     finalize-locations/wrapper
     expose-frame-var/wrapper
+    expose-memory-operands/wrapper
     expose-basic-blocks/wrapper
     flatten-program/wrapper
     generate-x86-64/wrapper)
@@ -246,6 +248,7 @@
       ((remove-complex-opera*) remove-complex-opera*/wrapper)
       ((flatten-set!) flatten-set!/wrapper)
       ((impose-calling-conventions) impose-calling-conventions/wrapper)
+      ((expose-allocation-pointer) expose-allocation-pointer/wrapper)
       ((uncover-frame-conflict) uncover-frame-conflict/wrapper)
       ((pre-assign-frame) pre-assign-frame/wrapper)
       ((assign-new-frame) assign-new-frame/wrapper)
@@ -257,6 +260,7 @@
       ((discard-call-live) discard-call-live/wrapper)
       ((finalize-locations) finalize-locations/wrapper)
       ((expose-frame-var) expose-frame-var/wrapper)
+      ((expose-memory-operands) expose-memory-operands/wrapper)
       ((expose-basic-blocks) expose-basic-blocks/wrapper)
       ((flatten-program) flatten-program/wrapper)
       ((generate-x86-64) generate-x86-64/wrapper)
@@ -286,6 +290,19 @@
 ;; impose-calling-conventions/wrapper
 ;;-----------------------------------
 (define-language-wrapper impose-calling-conventions/wrapper
+  (x)
+  (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-complex
+  ,new-frames
+  ,set!
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec locals true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+(define-language-wrapper expose-allocation-pointer/wrapper
   (x)
   (environment env)
   (define frame-size ,(compute-frame-size x))
@@ -427,8 +444,11 @@
 
 ;;-----------------------------------
 ;; expose-frame-var/wrapper
+;; expose-memory-operands/wrapper
 ;;-----------------------------------
-(define-language-wrapper expose-frame-var/wrapper (x)
+(define-language-wrapper
+  (expose-frame-var/wrapper expose-memory-operands/wrapper)
+  (x)
   (environment env)
   ,return-point-simple
   ,set!

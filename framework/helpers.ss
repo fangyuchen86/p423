@@ -229,6 +229,7 @@
     label->x86-64-label 
     make-disp-opnd
     disp-opnd disp-opnd? disp-opnd-reg disp-opnd-offset
+    make-index-opnd
     index-opnd index-opnd? index-opnd-breg index-opnd-ireg
     unique-name unique-name-count extract-suffix unique-label
     extract-root
