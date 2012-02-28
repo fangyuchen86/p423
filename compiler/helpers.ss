@@ -2,6 +2,7 @@
 ;;
 ;; part of p423-sp12/srwaggon-p423 assign3
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
+;; introduced in a4
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
@@ -53,24 +54,20 @@
   (syntax-rules ()
     [(_ bool who string exp ...)
      (unless bool
-       (errorf who string exp ...))
-    ]
+       (errorf who string exp ...))]
     [(_ bool string exp ...)
      (unless bool
-       (errorf string exp ...))
-    ]
+       (errorf string exp ...))]
   )
 )
 (define-syntax error-when
   (syntax-rules ()
     [(_ bool who string exp ...)
      (when bool
-       (errorf who string exp ...))
-    ]
+       (errorf who string exp ...))]
     [(_ bool string exp ...)
      (when bool
-       (errorf string exp ...))
-    ]
+       (errorf string exp ...))]
   )
 )
 
@@ -121,5 +118,6 @@
     (label? exp)
   )
 )
+
 
 ) ;; End Library

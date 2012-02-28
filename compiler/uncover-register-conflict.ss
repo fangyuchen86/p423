@@ -1,31 +1,30 @@
 ;; uncover-register-conflict.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 a4
+;; part of p423-sp12/srwaggon-p423 a5
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
+;; since a4
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012 / 2 / 18
+;; 2012 / 2 / 21
 
 #!chezscheme
 (library (compiler uncover-register-conflict)
-  (export uncover-register-conflict)
+  (export uncover-conflicts uncover-register-conflict)
   (import
    ;; Load Chez Scheme primitives:
    (chezscheme)
    ;; Load compiler framework:
    (framework match)
    (framework helpers)
-   (compiler helpers))
-
-  
+   (compiler helpers)
+  )
 
 #|
-uncover-register-conflict takes the blankets away from
-register conflicts so that they freeze to death and die.
+uncover-conflict takes the blankets away from
+conflicts so that they freeze to death and die.
 |# 
-(define-who (uncover-register-conflict program)
-  
+(define (uncover-conflicts tail uvar* who pred)
   ;; graph-add! : symbol symbol conflict-graph --> conflict-graph
   ;; graph-add! side-effects the given conflict-graph by set-cdr!'ing
   ;; the given symbol's association's cdr as the set-cons of its current
@@ -47,18 +46,18 @@ register conflicts so that they freeze to death and die.
     (let loop ([conflicts conflicts]
                [graph graph])
       (cond                 #| This is here to keep pacman from walking through this code |#
-        [(null? conflicts) graph]
+          [(null? conflicts) graph]
         [else (loop (cdr conflicts) (graph-add!
                                      (car conflicts) s (graph-add! s (car conflicts) graph)))])))
                   
-  ;; handle-var : symbol live-set --> live-set
-  ;; iff the var is a uvar or a register it is added
+  ;; handle : symbol pred live-set --> live-set
+  ;; iff the var qualifies by the pred or is a register it is added
   ;; to the live-set before the live-set is returned.
-  (define (handle-var var ls)
-    (if (or (uvar? var) (register? var)) (set-cons var ls) ls))
+  (define (handle var ls)
+    (if (or (uvar? var) (pred var)) (set-cons var ls) ls))
 
   ;; graph-union! : conflict-graph conflict-graph --> conflict-graph
-  ;; graph-union! takes two conflict graphs and combines their entries
+  ;; graph-union! takes two conflict  graphs and combines their entries
   ;; (key-value pairs where the value is a list of conflicts)
   ;; into a single conflict-graph (through side-effecting the secondly
   ;; provided conflict graph
@@ -69,17 +68,17 @@ register conflicts so that they freeze to death and die.
              (update-graph s flicts g1))) g0)
     g1 #|Pacman blocker|#
   )
-
+  
   ;; Effect : Effect* Effect conflict-graph live-set --> conflict-graph live-set
   (define (Effect effect* effect graph live)
     (match effect
       [(nop) (Effect* effect* graph live)]
       [(set! ,lhs (,binop ,rhs0 ,rhs1))
        (let ([ls (remove lhs live)])
-         (Effect* effect* (update-graph lhs ls graph) (handle-var rhs0 (handle-var rhs1 ls))))]
+         (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]
       [(set! ,lhs ,rhs)
        (let ([ls (remove lhs live)])
-         (Effect* effect* (update-graph lhs ls graph) (handle-var rhs ls)))]
+         (Effect* effect* (update-graph lhs ls graph) (handle rhs ls)))]
       [(if ,pred ,conseq ,altern)
        (let*-values ([(ga lsa) (Effect '() altern graph live)]
                      [(gc lsc) (Effect '() conseq graph live)]
@@ -110,7 +109,7 @@ register conflicts so that they freeze to death and die.
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (values (graph-union! Cgraph Agraph) (union lsp lsc lsa)))]
       [(,relop ,triv0 ,triv1)
-       (values (graph-union! Cgraph Agraph) (handle-var triv0 (handle-var triv1 (union Clive Alive))))]
+       (values (graph-union! Cgraph Agraph) (handle triv0 (handle triv1 (union Clive Alive))))]
       [,else (invalid who 'Pred else)]))
 
   ;; Tail : Tail conflict-graph live-set --> conflict-graph live-set
@@ -125,29 +124,32 @@ register conflicts so that they freeze to death and die.
                      [(gc lsc) (Tail conseq graph live)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (values graph (union lsp lsc lsa)))]
-      [(,triv ,loc* ...) (values graph (handle-var triv (union loc* live)))]
+      [(,triv ,loc* ...) (values graph (handle triv (union loc* live)))]
       [,else (invalid who 'Tail else)]))
+
+  (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]
+                [(live-set) '()]
+                [(graph lives) (Tail tail empty-graph live-set)])
+    graph
+  )
+)
+
+(define-who  (uncover-register-conflict program)
 
   (define (Body body) ;; Body --> Body
     (match body
-      [(locals ,uvar* ,tail)
-       (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]
-                     [(live-set) '()]
-                     [(graph lives) (Tail tail empty-graph live-set)])
-             `(locals ,uvar* (register-conflict ,graph ,tail)))]
+      [(locals ,uvar* (frame-conflict ,frame-conflict-graph ,tail))
+       `(locals ,uvar* (frame-conflict ,frame-conflict-graph (register-conflict ,(uncover-conflicts tail uvar* who register?) ,tail)))]
       [,else (invalid who 'Body else)]))
-
-  (define (Block block) ;; Block --> Block
-    (match block
-      [(,label (lambda () ,[Body -> body])) `(,label (lambda () ,body))]
-      [,else (invalid who 'Block else)]))
-
+  
   (define (Program program) ;; Program --> Program
     (match program
-      [(letrec (,[Block -> block*] ...) ,[Body -> body])
-       `(letrec ,block* ,body)]
-      [,else (invalid who 'Program else)]))
+      [(letrec ([,label* (lambda () ,[Body -> body*])] ...) ,[Body -> body])
+       `(letrec ([,label* (lambda () ,body*)] ...) ,body)]
+    [,else (invalid who 'Program else)]))
+  
+  (Program program)
+)
 
-  (Program program))
   
 ) ;; End Library

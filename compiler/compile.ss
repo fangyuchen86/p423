@@ -33,8 +33,16 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-compile-passes pass->wrapper)
   (verify-scheme)
-  (uncover-register-conflict)
-  (assign-registers)
+  (uncover-frame-conflict)
+  (introduce-allocation-forms)
+  (iterate
+   (select-instructions)
+   (uncover-register-conflict)
+   (assign-registers)
+   (break/when everybody-home?)
+   (assign-frame)
+   (finalize-frame-locations)
+   )
   (discard-call-live)
   (finalize-locations)
   (expose-frame-var)
