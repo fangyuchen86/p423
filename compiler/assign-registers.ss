@@ -23,21 +23,27 @@
 
 (define-who (assign-registers program)
 
-  #| graph-remove : symbol conflict-graph --> conflict-graph
-  || graph-remove takes a symbol and an association list
-  || and removes the given symbol from the value for each
-  ||  key in the list.
+  #| graph-remove
+  || : symbol conflict-graph
+  || --> conflict-graph
+  || 
+  || Removes the given symbol from the value for each
+  || key in the list.
   |#
   (define (graph-remove x graph)
     (let ([graph (map (lambda (y) (cons (car y) (remove x (cdr y)))) graph)])
       (remove (assq x graph) graph)))
   
   
-  #| low-degree : uvar uvar* --> conflict-graph
-  || low-degree iterates across each uvar in uvar*
+  #| low-degree
+  || : uvar uvar* conflict-graph
+  || --> uvar of low-degree
+  ||
+  || Iterates across each uvar in uvar*
   || determining which is low-degree until it finds a low
-  || degree variable (of which it will return).
-  || if no low-degree variable is found, it will return the
+  || degree variable (less conflicts than available registers)
+  || of which it will return.
+  || If no low-degree variable is found, it will return the
   || last variable seen.
   |#
   (define (low-degree cur uvar* conflict*)
@@ -49,12 +55,11 @@
   ))
   
   
-  #| play-nice : uvar* conflict-graph spills-list --> `((uvar register) ...) spills-list
-  || play-nice takes
-  || a list of uvars
-  || a list of uvar-conflict associations (conflict graph)
-  || a list of spilt uvars
-  || and attempts to safely associate each uvar with a register
+  #| play-nice
+  || : uvar* conflict-graph spills-list
+  || --> `((uvar register) ...) spills-list
+  ||
+  || Attempts to safely associate each uvar with a register
   || for which it does not conflict.
   |#
   (define (play-nice uvar* conflict* spills)
@@ -69,9 +74,11 @@
              [(avail) (difference registers conflicts)])
           (if (null? avail) (values alist (set-cons uvar spills))
               (values `((,uvar ,(car avail)) . ,alist) spills)))))
-  
 
-  #| Body : Body --> (complete / incomplete) Body
+  #| Body
+  || : Body
+  || --> (complete / incomplete) Body
+  ||
   || Body handles the Body part of our grammar.
   || If a variable is spilled (has no available registers)
   || then Body returns an incomplete Body requiring

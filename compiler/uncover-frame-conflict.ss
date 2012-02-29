@@ -18,7 +18,6 @@
    (framework match)
    (framework helpers)
    (compiler helpers)
-   (compiler uncover-register-conflict)
   )
 
 (define-who (uncover-frame-conflict program)
