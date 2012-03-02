@@ -12,8 +12,14 @@
 (library (compiler passes)
   (export
     verify-scheme
+    uncover-frame-conflict
     uncover-register-conflict
+    introduce-allocation-forms
+    select-instructions
     assign-registers
+    assign-frame
+    everybody-home?
+    finalize-frame-locations
     discard-call-live
     finalize-locations
     expose-frame-var
@@ -29,8 +35,14 @@
     (framework helpers)
     ;; load compiler passes
     (compiler verify-scheme)
+    (compiler uncover-frame-conflict)
+    (compiler introduce-allocation-forms)
+    (compiler select-instructions)
     (compiler uncover-register-conflict)
     (compiler assign-registers)
+    (compiler assign-frame)
+    (compiler everybody-home)
+    (compiler finalize-frame-locations)
     (compiler discard-call-live)
     (compiler finalize-locations)
     (compiler expose-frame-var)

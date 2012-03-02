@@ -45,13 +45,12 @@
     (if (null? uvar*) home*
         (let* ([uvar (car uvar*)]
                [used (map (lambda (x)
-                            (if (assq x alist) (cadr (assq x alist)) x))
+                            (if (assq x home*) (cadr (assq x home*)) x))
                           (assq uvar conflict*))]
-               [home (let* find-home ([index 0]
-                                      [fv (index->frame-var index)])
-                           (if (memq fv used) (find-home (add1 index)) fv))])
-          `((,uvar ,home) .
-            ,(play-nice (remove uvar uvar*) (graph-remove uvar conflict*)))
+               [home (let find-home ([index 0])
+                       (let ([fv (index->frame-var index)])
+                         (if (memq fv used) (find-home (add1 index)) fv)))])
+          (play-nice (remove uvar uvar*) (graph-remove uvar conflict*) `((,uvar ,home) . ,home*))
   )))
 
   #| Body
@@ -72,7 +71,7 @@
              (locate (,home* ...)
                (frame-conflict ,fgraph ,tail)))))
        
-       (let ([bind* (play-nice (union local* ulocal*) rgraph home*)])
+       (let ([bind* (play-nice (union local* ulocal*) fgraph home*)])
          `(locals ,(difference local* spill*)
             (ulocal* ,(difference ulocal* spill*)
               (locate (,bind* ...)

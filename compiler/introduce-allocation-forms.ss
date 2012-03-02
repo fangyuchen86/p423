@@ -7,12 +7,12 @@
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012 / 2 / 21
+;; 2012 / 3 / 1
 
 #!chezscheme
-(library (compiler )
+(library (compiler introduce-allocation-forms)
   (export 
-
+   introduce-allocation-forms
   )
   (import
    ;; Load Chez Scheme primitives:
@@ -27,17 +27,18 @@
   
   (define (Body body)
     (match body
-      [(locals ,uvar* (frame-conflict ,conflict* ,tail))
-       `(locals ,uvar* (ulocals () (locate () (frame-conflict ,conflict ,tail))))]
-      [,else (invalid who 'Body)]
+      [(locals (,uvar* ...) (frame-conflict ,conflict* ,tail))
+       `(locals (,uvar* ...) (ulocals () (locate () (frame-conflict ,conflict* ,tail))))]
+      [,else (invalid who 'Body else)]
   ))
 
   (define (Program program)
     (match program
-      [(letrec ([,label* (lambda () ,[body*])] ...) ,[body])
+      [(letrec ([,label* (lambda () ,[Body -> body*])] ...) ,[Body -> body])
        `(letrec ([,label* (lambda () ,body*)] ...) ,body)]
-      [,else (invalid who 'Program)]
+      [,else (invalid who 'Program else)]
   ))
 
   (Program program)
-)
+
+)) ;; end library

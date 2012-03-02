@@ -25,7 +25,7 @@
   (define (Body body) ;; Body --> Body
     (match body
       [(locals ,uvar* ,tail)
-       `(locals ,uvar* (frame-conflict ,(uncover-conflict tail uvar* who frame-var?) ,tail))]
+       `(locals ,uvar* (frame-conflict ,(uncover-conflicts tail uvar* who frame-var?) ,tail))]
       [,else (invalid who 'Body else)]))
   
   (define (Program program) ;; Program --> Program
