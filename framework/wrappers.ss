@@ -330,7 +330,7 @@
     (only (framework wrappers aux)
       handle-overflow true false nop
       * + -)
-    (except scheme * + -))
+    (except (chezscheme) * + -))
   (reset-machine-state!)
   ,x)
 
