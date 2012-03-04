@@ -316,7 +316,6 @@
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
     (only (chezscheme) letrec))
-  (reset-machine-state!)
   ,x)
 
 ;;-----------------------------------
@@ -335,7 +334,6 @@
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
     (only (chezscheme) letrec))
-  (reset-machine-state!)
   ,x)
 
 ;;-----------------------------------
