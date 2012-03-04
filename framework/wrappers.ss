@@ -29,7 +29,7 @@
 
 (define env
   (environment
-    '(except (chezscheme) set! letrec)
+    '(chezscheme)
     '(framework helpers)
     '(framework helpers frame-variables)))
 
@@ -315,7 +315,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
-    (only (chezscheme) letrec))
+    (except (chezscheme) set!))
   ,x)
 
 ;;-----------------------------------
@@ -333,7 +333,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
-    (only (chezscheme) letrec))
+    (except (chezscheme) set! lambda))
   ,x)
 
 ;;-----------------------------------
@@ -349,7 +349,8 @@
   ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec locals true false nop))
+      handle-overflow letrec locals true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -365,7 +366,8 @@
   ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec locals true false nop))
+      handle-overflow letrec locals true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -382,7 +384,8 @@
   (import
     (only (framework wrappers aux)
       handle-overflow letrec locals spills call-live
-      frame-conflict true false nop))
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -398,7 +401,8 @@
   (import
     (only (framework wrappers aux)
       handle-overflow letrec locals locate call-live 
-      frame-conflict true false nop))
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -413,7 +417,8 @@
   (import
     (only (framework wrappers aux)
       handle-overflow letrec locals ulocals spills locate
-      frame-conflict true false nop))
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
@@ -438,7 +443,8 @@
     (only (framework wrappers aux)
       handle-overflow letrec locate
       locals ulocals frame-conflict
-      true false nop))
+      true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -452,7 +458,8 @@
   (import
     (only (framework wrappers aux)
       handle-overflow letrec locate locals ulocals frame-conflict
-      register-conflict true false nop))
+      register-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -466,7 +473,8 @@
   (import
     (only (framework wrappers aux)
       handle-overflow letrec locate locals ulocals spills
-      frame-conflict true false nop))
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -479,7 +487,8 @@
   ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec locate true false nop))
+      handle-overflow letrec locate true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -492,7 +501,8 @@
   ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow letrec true false nop))
+      handle-overflow letrec true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
   ,return-value-register)
 
@@ -509,7 +519,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow true false nop)
-    (only (chezscheme) letrec))
+    (except (chezscheme) set!))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
@@ -524,7 +534,7 @@
   ,set!
   (import
     (only (framework wrappers aux) handle-overflow)
-    (only (chezscheme) letrec))
+    (except (chezscheme) set!))
   (call/cc
     (lambda (k)
       (set! ,return-address-register k)
@@ -540,7 +550,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow code jump)
-    (only (chezscheme) letrec))
+    (except (chezscheme) set!))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
