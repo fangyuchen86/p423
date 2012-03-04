@@ -221,6 +221,9 @@
   (export
     pass->wrapper
     source/wrapper
+    verify-scheme/wrapper
+    uncover-locals/wrapper
+    remove-let/wrapper
     verify-uil/wrapper
     remove-complex-opera*/wrapper
     flatten-set!/wrapper
