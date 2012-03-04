@@ -255,6 +255,9 @@
   (lambda (pass)
     (case pass
       ((source) source/wrapper)
+      ((verify-scheme) verify-scheme/wrapper)
+      ((uncover-locals) uncover-locals/wrapper)
+      ((remove-let) remove-let/wrapper)
       ((verify-uil) verify-uil/wrapper)
       ((remove-complex-opera*) remove-complex-opera*/wrapper)
       ((flatten-set!) flatten-set!/wrapper)
@@ -280,12 +283,43 @@
 
 ;;-----------------------------------
 ;; source/wrapper
+;; verify-scheme/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  (source/wrapper verify-scheme/wrapper)
+  (x)
+  (environment env)
+  ,alloc
+  (import
+    (only (framework wrappers aux)
+      handle-overflow true false nop)
+    (only (chezscheme) letrec))
+  (reset-machine-state!)
+  ,x)
+
+;;-----------------------------------
+;; uncover-locals/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  uncover-locals/wrapper
+  (x)
+  (environment env)
+  ,alloc
+  (import
+    (only (framework wrappers aux)
+      handle-overflow locals true false nop)
+    (only (chezscheme) letrec))
+  (reset-machine-state!)
+  ,x)
+
+;;-----------------------------------
 ;; verify-uil/wrapper
+;; remove-let/wrapper
 ;; remove-complex-opera*/wrapper
 ;; flatten-set!/wrapper
 ;;-----------------------------------
 (define-language-wrapper
-  (source/wrapper verify-uil/wrapper
+  (verify-uil/wrapper remove-let/wrapper
    remove-complex-opera*/wrapper flatten-set!/wrapper)
   (x)
   (environment env)
