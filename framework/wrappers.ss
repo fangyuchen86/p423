@@ -300,7 +300,7 @@
   (import
     (only (framework wrappers aux)
       handle-overflow true false nop)
-    (only (chezscheme) letrec))
+    (only (chezscheme) set! letrec))
   (reset-machine-state!)
   ,x)
 
