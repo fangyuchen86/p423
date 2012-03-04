@@ -609,6 +609,6 @@
                   (format "exec '~a'" program)
                   (buffer-mode block)
                   (native-transcoder))])
-    (read in)))
+    (get-line in)))
 
 )
