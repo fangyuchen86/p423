@@ -284,7 +284,7 @@
     (only (framework wrappers aux)
       env rewrite-opnds compute-frame-size
       return-point-complex return-point-simple
-      new-frames set! alloc * + -))
+      new-frames set! alloc))
 
 (define pass->wrapper
   (lambda (pass)
