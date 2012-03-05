@@ -73,7 +73,7 @@
        
        (let ([bind* (play-nice (union local* ulocal*) fgraph home*)])
          `(locals ,(difference local* spill*)
-            (ulocal* ,(difference ulocal* spill*)
+            (ulocals ,(difference ulocal* spill*)
               (locate (,bind* ...)
                 (frame-conflict ,fgraph ,tail)))))]
       [(locate (,home* ...) ,tail)  `(locate (,home* ...) ,tail)]
