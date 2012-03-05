@@ -41,16 +41,22 @@
   || Finds and binds each uvar to a
   || non-conflicting frame-var.
   |#
-  (define (play-nice uvar* conflict* home*)
+  (define (play-nice uvar* cgraph home*)
     (if (null? uvar*) home*
         (let* ([uvar (car uvar*)]
-               [used (map (lambda (x)
-                            (if (assq x home*) (cadr (assq x home*)) x))
-                          (assq uvar conflict*))]
+               [conflict* (assq uvar cgraph)]
+               [used (let find-used ([conflict* conflict*])
+                       (cond
+                         [(or (null? conflict*) (not conflict*)) '()]
+                         [(frame-var? (car conflict*))
+                          (set-cons (car conflict*) (find-used (cdr conflict*)))]
+                         [(assq (car conflict*) home*) =>
+                          (lambda (x) (set-cons (cadr x) (find-used (cdr conflict*))))]
+                         [else (find-used (cdr conflict*))]))]
                [home (let find-home ([index 0])
                        (let ([fv (index->frame-var index)])
                          (if (memq fv used) (find-home (add1 index)) fv)))])
-          (play-nice (remove uvar uvar*) (graph-remove uvar conflict*) `((,uvar ,home) . ,home*))
+          (play-nice (remove uvar uvar*) (graph-remove uvar cgraph) `((,uvar ,home) . ,home*))
   )))
 
   #| Body
