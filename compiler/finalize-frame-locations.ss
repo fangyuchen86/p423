@@ -35,10 +35,11 @@
     (define (Var env)
       (lambda (var)
         (match var
-          [,uvar (guard (uvar? uvar)) (assq uvar env)]
+          [,uvar (guard (uvar? uvar) (assq uvar env))
+                 (cdr (assq uvar env))]
           [,reg (guard (register? reg)) reg]
           [,fvar (guard (frame-var? fvar)) fvar]
-          [,else (invalid who 'Var else)]
+          [,else else]
     )))
 
     (define (Triv env)
