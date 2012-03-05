@@ -133,7 +133,9 @@ conflicts so that they freeze to death and die.
                      [(gc lsc) (Tail conseq graph live)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (values graph (union lsp lsc lsa)))]
-      [(,triv ,loc* ...) (values graph (handle triv (union loc* live)))]
+      [(,triv ,loc* ...)
+       (values graph (handle triv
+                             (union (filter (lambda (x) (or (uvar? x) (pred x))) loc*) live)))]
       [,else (invalid who 'Tail else)]))
 
   (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]
