@@ -45,14 +45,16 @@
     (if (null? uvar*) home*
         (let* ([uvar (car uvar*)]
                [conflict* (assq uvar cgraph)]
-               [used (let find-used ([conflict* conflict*])
-                       (cond
-                         [(or (null? conflict*) (not conflict*)) '()]
-                         [(frame-var? (car conflict*))
-                          (set-cons (car conflict*) (find-used (cdr conflict*)))]
-                         [(assq (car conflict*) home*) =>
-                          (lambda (x) (set-cons (cadr x) (find-used (cdr conflict*))))]
-                         [else (find-used (cdr conflict*))]))]
+               [used (if conflict*
+                         (let find-used ([conflict* (cdr conflict*)])
+                           (cond
+                             [(null? conflict*) '()]
+                             [(frame-var? (car conflict*))
+                              (set-cons (car conflict*) (find-used (cdr conflict*)))]
+                             [(assq (car conflict*) home*) =>
+                              (lambda (x) (set-cons (cadr x) (find-used (cdr conflict*))))]
+                             [else (find-used (cdr conflict*))]))
+                         '())]
                [home (let find-home ([index 0])
                        (let ([fv (index->frame-var index)])
                          (if (memq fv used) (find-home (add1 index)) fv)))])
