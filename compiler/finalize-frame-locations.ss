@@ -103,7 +103,7 @@
            (ulocals (,ulocal* ...)
              (locate ([,uvar* ,loc*] ...)
                (frame-conflict ,fgraph ,tail))))]
-        [(locate (,home* ...) ,[Tail -> tail])
+        [(locate (,home* ...) ,[(Tail home*) -> tail])
         `(locate (,home* ...) ,tail)]
         [,else (invalid who 'Body else)]
     ))
