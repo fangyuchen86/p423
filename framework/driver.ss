@@ -230,6 +230,8 @@
     (chezscheme)
     (framework driver aux))
 
+;;Defining Wrappers;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define-syntax define-language-wrapper
   (syntax-rules (environment)
     [(_ (n1 n2 ...) (args ...) exps ...)
@@ -241,48 +243,53 @@
      (define name
        (let ([the-env env])
          (lambda (args ...)
-           (with-exception-handler
-             (lambda (c)
-               (cond
-                 [(warning? c) (display-condition c)]
-                 [else (raise
-                         (condition (make-wrapper-violation 'name) c))]))
-             (lambda ()
-               (eval `(let () exps ...) the-env))))))]
+           (wrapper-body name the-env exps ...))))]
     [(_ name (args ...) exps ...)
      (begin (define env (environment '(chezscheme)))
             (define-language-wrapper name (args ...)
               (environment env)
               exps ...))]))
 
+(define-syntax wrapper-body
+  (syntax-rules ()
+    ((_ name the-env . exps)
+     (with-exception-handler
+       (lambda (c)
+         (cond
+           [(warning? c) (display-condition c)]
+           [else (raise (condition (make-wrapper-violation 'name) c))]))
+       (lambda () (eval `(let () . exps) the-env))))))
+
+;;Defining Compilers;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (define-syntax compose-passes
   (syntax-rules (iterate break/when trace)
-    [(_ check k (input source-wrapper)) input]
-    [(_ check k (input source-wrapper) (iterate . specs) . rest)
-     (compose-passes check k
-       ((run-iterated-pass check input source-wrapper . specs)
+    [(_ k (input source-wrapper)) input]
+    [(_ k (input source-wrapper) (iterate . specs) . rest)
+     (compose-passes k
+       ((run-iterated-pass input source-wrapper . specs)
         (next-wrapper source-wrapper . specs))
        . rest)]
-    [(_ check k (input source-wrapper) (break/when pred?) . rest)
+    [(_ k (input source-wrapper) (break/when pred?) . rest)
      (begin
        (when (not (syntax->datum #'k))
          (syntax-violation 'define-compiler
            "break encountered outside of iterate clause"
            #'(break/when pred?)))
        #t)
-     (compose-passes check k
+     (compose-passes k
        ((let ([inv input]) (if (pred? inv) (k inv) inv))
         source-wrapper)
        . rest)]
-    [(_ check k (input source-wrapper) (pass wrapper) . rest)
-     (compose-passes check k
-       ((run-pass check input source-wrapper wrapper pass) wrapper)
+    [(_ k (input source-wrapper) (pass wrapper) . rest)
+     (compose-passes k
+       ((run-pass input source-wrapper wrapper pass) wrapper)
        . rest)]
-    [(_ check k (input source-wrapper) (trace pass wrapper) . rest)
+    [(_ k (input source-wrapper) (trace pass wrapper) . rest)
      (let ([pass (trace-lambda pass (i) (pass i))])
-       (compose-passes check k (input source-wrapper) 
+       (compose-passes k (input source-wrapper) 
          (pass wrapper) . rest))]
-    [(_ check k (input source-wrapper) (pass wrapper assemble) . rest)
+    [(_ k (input source-wrapper) (pass wrapper assemble) . rest)
      (begin
        (when (syntax->datum #'k)
          (syntax-violation 'define-compiler
@@ -293,7 +300,7 @@
            "non-final assemble pass"
            #'(pass wrapper assemble)))
        #t)
-     (run-emit-pass check input source-wrapper wrapper assemble pass)]))
+     (run-emit-pass input source-wrapper wrapper assemble pass)]))
 
 (define-syntax next-wrapper
   (syntax-rules (iterate break/when trace)
@@ -304,126 +311,138 @@
 
 (define-syntax run-pass
   (syntax-rules ()
-    [(_ check input input-wrapper output-wrapper pass)
+    [(_ input input-wrapper output-wrapper pass)
      (let ([inv input])
        (let ([output (pass inv)])
-         (when (enum-set-member? 'pass check)
-           (let ([input-res (input-wrapper inv)]
-                 [output-res (output-wrapper output)])
-             (verify-against inv input-res output output-res pass)))
+         (let ([input-res (input-wrapper inv)]
+               [output-res (output-wrapper output)])
+           (verify-against inv input-res output output-res pass))
          output))]))
 
 (define-syntax run-emit-pass
   (syntax-rules ()
-    [(_ check input input-wrapper output-wrapper assemble pass)
+    [(_ input input-wrapper output-wrapper assemble pass)
      (let ([inv input])
        (let ([output (assemble (lambda () (pass inv)))])
-         (when (enum-set-member? 'pass check)
-           (let ([input-res (input-wrapper inv)]
-                 [output-res (output-wrapper output)])
-             (verify-against inv input-res output output-res pass))))
-       (void))]))
+         (let ([input-res (input-wrapper inv)]
+               [output-res (output-wrapper output)])
+           (verify-against inv input-res output output-res pass))
+         (void)))]))
 
 (define-syntax run-iterated-pass
-  (syntax-rules (iterate break/when)
-    [(_ check input input-wrapper specs ...)
+  (syntax-rules ()
+    [(_ input input-wrapper . specs)
      (call-with-current-continuation
        (lambda (k)
          (let loop ([x input])
-           (loop
-             (compose-passes check k (x input-wrapper)
-               specs ...)))))]))
-
-(define-syntax define-compiler-enumeration
-  (syntax-rules (iterate % break/when)
-    [(_ % name all (passes ...))
-     (begin
-       (define name (list passes ...))
-       (define all (make-enumeration '(passes ...))))]
-    [(_ % name all (passes ...) (iterate spec1 spec2 ...) rest ...)
-     (define-compiler-enumeration % name all (passes ...)
-       spec1 spec2 ... rest ...)]
-    [(_ % name all (passes ...) (break/when foo ...) rest ...)
-     (define-compiler-enumeration % name all (passes ...)
-       rest ...)]
-    [(_ % name all (passes ...) (pass foo ...) rest ...)
-     (define-compiler-enumeration % name all (passes ... pass)
-       rest ...)]
-    [(_ name all spec1 spec2 ...)
-     (define-compiler-enumeration % name all () spec1 spec2 ...)]))
+           (loop (compose-passes k (x input-wrapper) . specs)))))]))
 
 (define-syntax define-compiler-aux
   (syntax-rules ()
-    ((_ (bindings ...) (name name-passes source-wrapper) spec1 spec2 ...)
-     (verify-pass-specifications #'(spec1 spec2 ...))
-     (begin
-       (define-compiler-enumeration name-passes all spec1 spec2 ...)
-       (define (name input . maybe-opts)
-         (let ([passes-to-check
-                 (if (null? maybe-opts) all (car maybe-opts))]
-               bindings ...)
-           (compose-passes
-             passes-to-check #f (input source-wrapper) spec1 spec2 ...)))))))
+    ((_ (bindings ...) (name source-wrapper) . specs)
+     (verify-pass-specifications #'specs)
+     (define (name input)
+       (let (bindings ...)
+         (compose-passes #f (input source-wrapper) . specs))))))
 
 (define-syntax rewrite-specs
   (syntax-rules (iterate trace break/when %)
-    [(_ name name-passes wp (specs ...) (b ...))
-     (define-compiler-aux
-       ((sw (wp 'source)) b ...) (name name-passes sw) specs ...)]
-    
-    [(_ name name-passes wp ((specs ...) % ispecs ...) (b ...) % rest ...)
-     (rewrite-specs name name-passes wp
+    [(_ name wp (specs ...) (b ...))
+     (define-compiler-aux ((sw (wp 'source)) b ...) (name sw) specs ...)]
+    [(_ name wp ((specs ...) % ispecs ...) (b ...) % rest ...)
+     (rewrite-specs name wp
        (specs ... (iterate ispecs ...)) (b ...) rest ...)]
-    
-    [(_ name name-passes wp (specs ...) (b ...)
-       (iterate spec1 spec2 ...) rest ...)
-     (rewrite-specs name name-passes wp
+    [(_ name wp (specs ...) (b ...) (iterate spec1 spec2 ...) rest ...)
+     (rewrite-specs name wp
        ((specs ...) %) (b ...) spec1 spec2 ... % rest ...)]
-    
-    [(_ name name-passes wp (specs ...) (b ...)
-       (trace pass foo ...) rest ...)
-     (rewrite-specs name name-passes wp
+    [(_ name wp (specs ...) (b ...) (trace pass foo ...) rest ...)
+     (rewrite-specs name wp
        (specs ... (trace pass w foo ...))
        (b ... (w (wp 'pass)))
        rest ...)]
-    
-    [(_ name name-passes wp (specs ...) (b ...)
-       (break/when foo ...) rest ...)
-     (rewrite-specs name name-passes wp
+    [(_ name wp (specs ...) (b ...) (break/when foo ...) rest ...)
+     (rewrite-specs name wp
        (specs ... (break/when foo ...)) (b ...) rest ...)]
-    
-    [(_ name name-passes wp (specs ...) (b ...)
-       (pass foo ...) rest ...)
-     (rewrite-specs name name-passes wp
+    [(_ name wp (specs ...) (b ...) (pass foo ...) rest ...)
+     (rewrite-specs name wp
        (specs ... (pass w foo ...))
        (b ... (w (wp 'pass)))
        rest ...)]))
 
 (define-syntax define-compiler
   (syntax-rules ()
-    ((_ (name name-passes wrapper-proc) spec1 spec2 ...)
-     (rewrite-specs name name-passes wrapper-proc () () spec1 spec2 ...))
-    ((_ (name name-passes name-step wrapper-proc) spec1 spec2 ...)
+    ((_ (name wrapper-proc) spec1 spec2 ...)
+     (rewrite-specs name wrapper-proc () () spec1 spec2 ...))
+    ((_ (name name-step wrapper-proc) spec1 spec2 ...)
      (begin
-       (define-compiler (name name-passes wrapper-proc) spec1 spec2 ...)
-       (define-step name-step name-passes)))))
+       (define-compiler (name wrapper-proc) spec1 spec2 ...)
+       (define-compiler-step name-step spec1 spec2 ...)))))
 
-(define-syntax define-step
+;;Defining the Stepper;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-syntax run-one-pass
   (syntax-rules ()
-    ((_ name-step name-passes)
-     (define name-step
+    ((_ pass inp)
+     (begin
+       (printf "\nPass: ~s\n" pass)
+       (let ((res (pass inp)))
+         (begin
+           (printf "\nOutput: \n")
+           (pretty-print res)
+           res))))))
+
+(define-syntax define-compiler-step
+  (syntax-rules ()
+    ((_ name spec1 . spec)
+     (define name
        (case-lambda
          ((prog)
-          (name-step prog #f))
+          (name prog #f))
          ((prog n)
-          (let loop ((prog prog) (passes name-passes) (n n))
-            (unless (or (null? passes) (and n (zero? n)))
-              (begin
-                (printf "\nPass: ~s\n" (car passes))
-                (let ((result ((car passes) prog)))
-                  (printf "\nOutput: \n")
-                  (pretty-print result)
-                  (loop result (cdr passes) (and n (sub1 n)))))))))))))
+          (let ((inp prog) (i n))
+            (let-values (((inp _)
+                          (define-compiler-loop inp i spec1 . spec)))
+              inp))))))))
+
+(define-syntax define-compiler-loop
+  (syntax-rules (trace iterate break/when %)
+    ((_ inp i) (values inp i))
+    ((_ inp i (trace pass . foo) . rest)
+     (define-compiler-loop inp i (pass . foo) . rest))
+    ((_ inp i (iterate . ispecs) . rest)
+     (letrec ((loop
+                (lambda (inp^ i^)
+                  (define-iteration-loop inp^ i^ loop . ispecs))))
+       (let-values (((inp^ i^) (loop inp i)))
+         (define-compiler-loop inp^ i^ . rest))))
+    ((_ inp i (pass . foo) . rest)
+     (if (and i (zero? i))
+         (values inp i)
+         (let ((res (run-one-pass pass inp)) (i (and i (sub1 i))))
+           (define-compiler-loop res i . rest))))))
+
+(define-syntax define-iteration-loop
+  (syntax-rules ()
+    ((_ inp i jump)
+     (jump inp i))
+    ((_ inp i jump (break/when pred?) . rest)
+     (if (and i (zero? i))
+         (values inp i)
+         (let ((stop? (pred? inp)))
+           (if stop?
+               (begin
+                 (printf "\nBreaking iteration after ~s\n" pred?)
+                 (values inp i))
+               (begin
+                 (printf "\nBreak/when predicate ~s was not true, iteration continues\n" pred?)
+                 (define-iteration-loop inp i jump . rest))))))
+    ((_ inp i jump spec . rest)
+     (if (and i (zero? i))
+         (values inp i)
+         (let-values (((inp^ i^) (define-compiler-loop inp i spec)))
+           (define-iteration-loop inp^ i^ jump . rest))))))
+
+;;Other;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (verify-against inv input-res output output-res pass)
   (define (stringify x)
@@ -442,30 +461,30 @@
 
 (define display-pass-verification-violation
   (case-lambda
-    [(condition) (%dpvv condition (current-output-port))]
-    [(condition oport) (%dpvv condition oport)]))
+    [(condition)
+     (%dpvv condition (current-output-port))]
+    [(condition oport) 
+     (%dpvv condition oport)]))
 
 (define (%dpvv c p)
-  (assert (pass-verification-violation? c))
-  (assert (output-port? p))
-  (assert (textual-port? p))
-  (format p
-    "Verification of pass ~a failed.~n"
-    (pass-verification-violation-pass c))
-  (format p "~8,8tInput Pass:~n")
-  (parameterize ([pretty-initial-indent 0])
-    (pretty-print
-      (pass-verification-violation-input c)
-      p))
+  (begin
+    (assert (pass-verification-violation? c))
+    (assert (output-port? p))
+    (assert (textual-port? p))
+    (format p
+      "Verification of pass ~a failed.~n"
+      (pass-verification-violation-pass c))
+    (format p "~8,8tInput Pass:~n")
+    (parameterize ([pretty-initial-indent 0])
+      (pretty-print (pass-verification-violation-input c) p))
 
-  (format p "Result of evaluating Input: ~a~n~n" (pass-verification-violation-input-result c))
+    (format p "Result of evauluating Input: ~a~n~n"
+      (pass-verification-violation-input-result c))
 
-  (format p "~8,8tPass Output:~n")
-  (parameterize ([pretty-initial-indent 0])
-    (pretty-print
-      (pass-verification-violation-output c)
-      p))
-  (format p "Result of evaluating Output: ~a~n" (pass-verification-violation-output-result c))
-  )
+    (format p "~8,8tPass Output:~n")
+    (parameterize ([pretty-initial-indent 0])
+      (pretty-print (pass-verification-violation-output c) p))
+    (format p "Result of evauluating Output: ~a~n"
+      (pass-verification-violation-output-result c))))
 
 )
