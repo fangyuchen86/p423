@@ -38,6 +38,7 @@
         [(if ,[pred] ,[conseq] ,[altern]) `(if ,pred ,conseq ,altern)]
         [(begin ,[effect*] ... ,[effect]) `(begin ,effect* ... ,effect)]
         [(,relop ,[triv0] ,[triv1]) `(,relop ,triv0 ,triv1)]
+        [(,[tail]) `(,tail)] 
         [,x x]
       )
     )
