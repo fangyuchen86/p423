@@ -8,7 +8,7 @@
 ;; 2012/2/15
 
 (library (compiler compile)
-  (export p423-compile p423-compile-passes)
+  (export p423-compile p423-compile-step)
   (import 
     ;; Load Chez Scheme primitives:
     (chezscheme)
@@ -31,7 +31,7 @@
   "./t")
 
 ;; Defines the compiler
-(define-compiler (p423-compile p423-compile-passes pass->wrapper)
+(define-compiler (p423-compile p423-compile-step pass->wrapper)
   (verify-scheme)
   (uncover-frame-conflict)
   (introduce-allocation-forms)

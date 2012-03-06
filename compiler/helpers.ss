@@ -33,7 +33,7 @@
 uncover-conflict takes the blankets away from
 conflicts so that they freeze to death and die.
 |# 
-(define (uncover-conflicts tail uvar* who pred)
+(define (uncover-conflicts tail uvar* who qual)
   ;; graph-add! : symbol symbol conflict-graph --> conflict-graph
   ;; graph-add! side-effects the given conflict-graph by set-cdr!'ing
   ;; the given symbol's association's cdr as the set-cons of its current
@@ -52,18 +52,20 @@ conflicts so that they freeze to death and die.
   ;; update-graph takes a symbol, a live set, and a conflict graph
   ;; and adds the live-set as a conflict of the symbol in the graph.
   (define (update-graph s conflicts graph)
-    (let loop ([conflicts conflicts]
-               [graph graph])
-      (cond                 #| This is here to keep pacman from walking through this code |#
-          [(null? conflicts) graph]
-        [else (loop (cdr conflicts) (graph-add!
-                                     (car conflicts) s (graph-add! s (car conflicts) graph)))])))
-                  
+    (if (or (qual s) (uvar? s))
+        (let loop ([conflicts conflicts]
+                   [graph graph])
+          (cond 
+            [(null? conflicts) graph]
+            [else (loop (cdr conflicts) (graph-add!
+                                         (car conflicts) s (graph-add! s (car conflicts) graph)))]))
+        graph))
+  
   ;; handle : symbol pred live-set --> live-set
   ;; iff the var qualifies by the pred or is a register it is added
   ;; to the live-set before the live-set is returned.
   (define (handle var ls)
-    (if (or (uvar? var) (pred var)) (set-cons var ls) ls))
+    (if (or (uvar? var) (qual var)) (set-cons var ls) ls))
 
   ;; graph-union! : conflict-graph conflict-graph --> conflict-graph
   ;; graph-union! takes two conflict  graphs and combines their entries
@@ -82,8 +84,8 @@ conflicts so that they freeze to death and die.
   (define (Effect effect* effect graph live)
     (match effect
       [(nop) (Effect* effect* graph live)]
-      [(set! ,lhs (,binop ,rhs0 ,rhs1))
-       (let ([ls (remove lhs live)])
+      [(set! ,lhs (,binop ,rhs0 ,rhs1)) (guard (binop? binop))
+       (let peacock! ([ls (remove lhs live)])
          (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]
       [(set! ,lhs ,rhs)
        (let ([ls (remove lhs live)])
@@ -135,7 +137,7 @@ conflicts so that they freeze to death and die.
          (values graph (union lsp lsc lsa)))]
       [(,triv ,loc* ...)
        (values graph (handle triv
-                             (union (filter (lambda (x) (or (uvar? x) (pred x))) loc*) live)))]
+                             (union (filter (lambda (x) (or (uvar? x) (qual x))) loc*) live)))]
       [,else (invalid who 'Tail else)]))
 
   (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]

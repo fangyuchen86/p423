@@ -92,7 +92,8 @@
            (locate ,locate
              (frame-conflict ,fgraph
                (register-conflict ,rgraph ,tail))))) ;; <--- LHS || RHS ---V
-       (let-values ([(bind* spills) (play-nice (union locals ulocals) rgraph '())])
+
+       (let-values ([(bind* spills) (play-nice (union ulocals locals) rgraph '())])
          (if (null? spills) `(locate ,bind* ,tail)
              `(locals ,(difference locals spills)
                 (ulocals ,(difference ulocals spills)
