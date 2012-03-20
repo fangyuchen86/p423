@@ -8,6 +8,7 @@
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
 ;; 2012 / 3 / 5
+;; borrowed from solution set.
 
 #!chezscheme
 (library (compiler select-instructions)
