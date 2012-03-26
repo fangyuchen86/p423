@@ -31,7 +31,10 @@
     closures
     cookie
     procedure
+    procedure?
     make-procedure
+    procedure-code
+    procedure-env
     procedure-set!
     procedure-ref)
   (import
@@ -441,7 +444,8 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      * + - procedure make-procedure procedure-ref procedure-set!)
+      * + - procedure make-procedure procedure-ref
+      procedure-set! procedure-code procedure?)
     (except (chezscheme) * + - procedure?))
   ,x)
 
@@ -455,9 +459,9 @@
   (import
     (only (framework wrappers aux)
       true false nop * + -
-      procedure make-procedure procedure-ref procedure-set!)
+      procedure make-procedure procedure-ref
+      procedure-set! procedure-code procedure?)
     (except (chezscheme) * + - procedure?))
-  (reset-machine-state!)
   ,x)
 
 ;;-----------------------------------
