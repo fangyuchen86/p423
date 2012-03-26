@@ -436,8 +436,7 @@
 ;; lift-letrec/wrapper
 ;;----------------------------------------
 (define-language-wrapper
-  introduce-procedure-primitives/wrapper
-  lift-letrec/wrapper
+  (introduce-procedure-primitives/wrapper lift-letrec/wrapper)
   (x) 
   (environment env)
   (import
