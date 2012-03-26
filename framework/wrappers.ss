@@ -35,7 +35,7 @@
     procedure-set!
     procedure-ref)
   (import
-    (except (chezscheme) set! letrec)
+    (except (chezscheme) set! letrec procedure?)
     (framework match)
     (framework helpers))
 
@@ -433,6 +433,7 @@
 
 ;;----------------------------------------
 ;; introduce-procedure-primitives/wrapper
+;; lift-letrec/wrapper
 ;;----------------------------------------
 (define-language-wrapper
   introduce-procedure-primitives/wrapper
