@@ -31,7 +31,7 @@
     valid)
   (import (chezscheme))
 
-(define (invalid-tests)
+(define (invalid)
   `(7
      #(1 2 3 4)
      (begin (nop) '3)
@@ -207,7 +207,7 @@
                     x.1)))
      ))
 
-(define (valid-tests) 
+(define (valid) 
   '('7
       (begin '7)
       (letrec () '7)
