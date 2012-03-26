@@ -36,7 +36,6 @@
     procedure-ref)
   (import
     (except (chezscheme) set! procedure?)
-    ((chezscheme) (rename (letrec chez-letrec)))
     (framework match)
     (framework helpers))
 
@@ -278,7 +277,7 @@
 (define-syntax closures
   (syntax-rules ()
     [(_ ([name code free ...] ...) body)
-     (chez-letrec ([name (let ([env (make-vector (length '(free ...)))])
+     (letrec ([name (let ([env (make-vector (length '(free ...)))])
                            (lambda args
                              (if (and (= (length args) 1)
                                       (eq? (car args) cookie))
@@ -441,7 +440,7 @@
   (x) 
   (environment env)
   (import
-    (only (framework helpers aux)
+    (only (framework wrappers aux)
       * + - procedure make-procedure procedure-ref procedure-set!)
     (except (chezscheme) * + - procedure?))
   ,x)
