@@ -18,8 +18,25 @@
     (framework match)
     (framework helpers)
     ;; My passes:
-    (compiler passes))
-
+    (compiler verify-scheme)              ;; a1
+    (compiler remove-complex-opera*)      ;; a6
+    (compiler flatten-set!)               ;; a6
+    (compiler impose-calling-conventions) ;; a6
+    (compiler uncover-frame-conflict)     ;; a5
+    (compiler introduce-allocation-forms) ;; a5
+    (compiler select-instructions)        ;; a5
+    (compiler uncover-register-conflict)  ;; a4
+    (compiler assign-registers)           ;; a4
+    (compiler assign-frame)               ;; a5
+    (compiler everybody-home)             ;; a4
+    (compiler finalize-frame-locations)   ;; a5
+    (compiler discard-call-live)          ;; a4
+    (compiler finalize-locations)         ;; a5
+    (compiler expose-frame-var)           ;; a4
+    (compiler expose-basic-blocks)        ;; a3
+    (compiler flatten-program)            ;; a2
+    (compiler generate-x86-64)            ;; a1
+    )
 ;; Given a thunk that generates assembly code, this will compile the 
 ;; resulting assembly code and output it to a file named t.s
 (define (assemble thunk)
@@ -33,6 +50,9 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-compile-step pass->wrapper)
   (verify-scheme)
+  (remove-complex-opera*)
+  (flatten-set!)
+  (impose-calling-conventions)
   (uncover-frame-conflict)
   (introduce-allocation-forms)
   (iterate
