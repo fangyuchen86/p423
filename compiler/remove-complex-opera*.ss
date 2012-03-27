@@ -7,7 +7,7 @@
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012 / 3 / 21
+;; 2012 / 3 / 23
 
 #!chezscheme
 (library (compiler remove-complex-opera*)
@@ -63,33 +63,35 @@
       (let ([u (unique-name 't)])
         (set! new-ulocal* (cons u new-ulocal*)) u))
 
+    (define (simple? xpr)
+      (or (and (integer? xpr) (exact? xpr)) (label? xpr) (uvar? xpr)))
+    
     #|
     || trivialize : expr
-    || 
+    || Breaks down a nested expression and 
     |#
-    
-    (define (trivialize expr)
-      (define (bind expr)
-        (match expr
-
-        (let ([u (new-u)])
-          (values u
-         )
-      (match expr
-        [(,op ,[Value -> v] ,[Value -> v^])
-         (let-values ([(vbind vcall) (bind v)]
-                      [(v^bind v^call) (bind v^)])
-           (make-begin `((set! ,vbind ,vcall)
-                         (set! ,v^bind ,v^call)
-                         (,op ,vbind ,v^bind))))]
-        [() (let-values ([])]
+    (define (trivialize xpr)
+      (match xpr
+        [()  '()]
+        [(,op ,[Value -> v] ,[Value -> v^]) (guard (or (binop? op) (relop? op)))
+         (let ([u  (new-u)]
+               [u^ (new-u)])
+           (make-begin `((set! ,u  ,v )
+                         (set! ,u^ ,v^)
+                         (,op  ,u  ,u^))))]
+        [(,[v] . ,rem) (let ([u (new-u)])
+                         (make-begin `((set! ,u ,v) ,(trivialize rem))))]
+        [,x (guard (simple? x)) x]
+        [,x (invalid who 'Complex-Opera* x)]
         ))
     
     (define (Value v)
       (match v
         [(if ,[Pred -> p] ,[v] ,[v^]) `(if ,p ,v ,v^)]
-        [(begin ,[Effect -> e*] ... ,[v]) `(begin ,e* ,v)]
+        [(begin ,[Effect -> e*] ... ,[v]) (make-begin `(,e* ... ,v))]
         [(,binop ,v ,v^) (guard (binop? binop)) (trivialize v)]
+        [,t (guard (triv? t)) t]
+        [,else (invalid who 'Value else)]
         ))
     
     (define (Effect e)
@@ -97,7 +99,8 @@
         [(nop) e]
         [(set! ,uvar ,[Value -> v]) `(set! ,uvar ,v)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(begin ,[e] ,[e*] ...) `(begin ,e ,e* ...)]
+        [(begin ,[e*] ... ,[e]) (make-begin `(,e* ... ,e))]
+        [,else (invalid who 'Effect else)]
         ))
     
     (define (Pred p)
@@ -105,24 +108,23 @@
         [(true) p]
         [(false) p]
         [(if ,[t] ,[c] ,[a]) `(if ,t ,c ,a)]
-        [(begin ,[Effect -> e*] ... ,[p]) `(begin ,e* ... ,p)]
+        [( begin ,[Effect -> e*] ... ,[p]) (make-begin `(,e* ... ,p))]
         [(,relop ,v ,v^) (guard (relop? relop)) (trivialize p)]
         [,else (invalid who 'Pred else)]
         ))
     
     (define (Tail t)
       (match t
-        [,t (guard (triv? t)) ,t]
+        [,t (guard (triv? t)) t]
         [(,binop ,v ,v^) (guard (binop? binop)) (trivialize t)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(begin ,[Effect -> e*] ... ,[t]) `(begin ,e* ,t)]
+        [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
         [(,v ,v* ...) (trivialize t)]
         [,else (invalid who 'Tail else)]
         ))
     
-    ;;(define (Body b)
-      (match b
-            [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ...) ,t)]
+    (match b
+      [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ...) ,t)]
       [,else (invalid who 'Body else)]
       ))
 
