@@ -71,22 +71,17 @@
   
   (define (Tail t)
     (match t
+      [(,[Triv -> t^]) `(,t^)]
       [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
       [,t^ (guard (triv? t^)) t^]
       [,else (invalid who 'Tail else)]
       ))
-  
-  (define (Body b)
-    (match b
-      [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ...) ,t)]
-      [,else (invalid who 'Body else)]
-      ))
-  
+    
   (define (Program p)
     (match p
-      [(letrec ([,label (lambda (,uvar* ...) ,[Body -> b*])] ...) ,[Body -> b])
-       `(letrec ([,label (lambda (,uvar* ...) ,b*)] ...) ,b)]
+      [(letrec ([,label (lambda (,uvar* ...) ,[Tail -> t*])] ...) ,[Tail -> t])
+       `(letrec ([,label (lambda (,uvar* ...) ,t*)] ...) ,t)]
       [,else (invalid who 'Program else)]
       ))
   
