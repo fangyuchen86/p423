@@ -69,10 +69,10 @@
      
     (define (Tail t)
       (match t
-        [(begin ,[Effect -> e*] ... ,[t]) (make-begin (,e* .. ,t))]
+        [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* .. ,t))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(,binop ,t ,t^) (guard (binop? binop)) `(,binop ,t ,t^)]
-        [(,[Triv -> t] ,[Triv -> ,t*] ...) `(,t ,t* ...)]
+        [(,[Triv -> t] ,[Triv -> t*] ...) `(,t ,t* ...)]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Tail else)]
         ))

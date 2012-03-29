@@ -24,7 +24,7 @@
   )
 
 
-(define ( program)
+(define-who ( program)
 
   (define (Triv t)
     (match t
@@ -35,7 +35,7 @@
   (define (Effect e)
     (match e
       [(nop) '(nop)]
-      [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^)]
+      [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
       [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^])) (guard (binop? binop))
        `(set! ,uvar (,binop ,t ,t^))]
@@ -47,15 +47,15 @@
     (match p
       [(true) '(true)]
       [(false) '(false)]
-      [(begin ,[Effect -> e*] ... ,[p^]) (make-begin `(,e* ... ,p^)]
+      [(begin ,[Effect -> e*] ... ,[p^]) (make-begin `(,e* ... ,p^))]
       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-      [(,relop ,[Triv -> t] ,[Triv -> ,t^]) (guard (relop? relop)) `(,relop ,t, ,t^)]
+      [(,relop ,[Triv -> t] ,[Triv -> t^]) (guard (relop? relop)) `(,relop ,t ,t^)]
       [,else (invalid who 'Pred else)]
       ))
   
   (define (Tail t)
     (match t
-      [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^)]
+      [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
       [(,binop ,[Triv -> t^] ,[Triv -> t&]) (guard (binop? binop)) `(,binop ,t^ ,t&)]
       [(,[Triv -> ,t^] ,[Triv -> t*] ...) `(,t^ ,t* ...)]
@@ -64,7 +64,7 @@
       ))
   
   (define (Body b)
-    (match p
+    (match b
       [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ...) ,t)]
       [,else (invalid who 'Body else)]
       ))
@@ -76,4 +76,6 @@
       [,else (invalid who 'Program else)]
       ))
   
-) ;; end library
+  (Program program)
+  
+)) ;; end library
