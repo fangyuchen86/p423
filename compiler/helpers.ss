@@ -233,7 +233,7 @@ conflicts so that they freeze to death and die.
 (define (triv? exp)
   (or
     (var? exp)
-    (integer? exp)
+    (int64? exp)
     (label? exp)
   )
 )
