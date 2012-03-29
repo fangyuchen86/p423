@@ -58,13 +58,17 @@
   (define (Body b)
 
     (define new-ulocal* '())
-
+    
     (define (new-u)
       (let ([u (unique-name 't)])
         (set! new-ulocal* (cons u new-ulocal*)) u))
 
     (define (simple? xpr)
-      (or (and (integer? xpr) (exact? xpr)) (label? xpr) (uvar? xpr)))
+      (or (and (integer? xpr) (exact? xpr))
+          (label? xpr)
+          (uvar? xpr)
+          (binop? xpr)
+          (relop? xpr)))
     
     #|
     || trivialize : expr
@@ -73,15 +77,17 @@
     (define (trivialize xpr)
       (match xpr
         [()  '()]
+        [,x (guard (simple? x)) x]
         [(,op ,[Value -> v] ,[Value -> v^]) (guard (or (binop? op) (relop? op)))
-         (let ([u  (new-u)]
+         `(,op ,v ,v^)
+         #;(let ([u  (new-u)]
                [u^ (new-u)])
            (make-begin `((set! ,u  ,v )
                          (set! ,u^ ,v^)
-                         (,op  ,u  ,u^))))]
+                         (,op  ,u  ,u^))))
+         ]
         [(,[v] . ,rem) (let ([u (new-u)])
                          (make-begin `((set! ,u ,v) ,(trivialize rem))))]
-        [,x (guard (simple? x)) x]
         [,x (invalid who 'Complex-Opera* x)]
         ))
     
@@ -124,7 +130,7 @@
         ))
     
     (match b
-      [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ...) ,t)]
+      [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ... ,new-ulocal* ...) ,t)]
       [,else (invalid who 'Body else)]
       ))
 
