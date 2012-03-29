@@ -57,11 +57,12 @@
 
   (define (Body b)
 
-    (define new-ulocal* '())
+    (define new-local* '())
     
-    (define (new-u)
-      (let ([u (unique-name 't)])
-        (set! new-ulocal* (cons u new-ulocal*)) u))
+    (define (new-t)
+      (let ([t (unique-name 't)])
+        (set! new-local* (cons t new-local*))
+        t))
 
     (define (simple? xpr)
       (or (and (integer? xpr) (exact? xpr))
@@ -69,33 +70,44 @@
           (uvar? xpr)
           (binop? xpr)
           (relop? xpr)))
-    
-    #|
-    || trivialize : expr
-    || Breaks down a nested expression and 
-    |#
-    (define (trivialize xpr)
+
+    (trace-define (trivialize xpr)
+      (let-values ([(code set!*) (simplify xpr)])
+        (make-begin `(,@set!* ,code))))
+
+    (define (simplify xpr)
       (match xpr
-        [()  '()]
-        [,x (guard (simple? x)) x]
-        [(,op ,[Value -> v] ,[Value -> v^]) (guard (or (binop? op) (relop? op)))
-         `(,op ,v ,v^)
-         #;(let ([u  (new-u)]
-               [u^ (new-u)])
-           (make-begin `((set! ,u  ,v )
-                         (set! ,u^ ,v^)
-                         (,op  ,u  ,u^))))
-         ]
-        [(,[v] . ,rem) (let ([u (new-u)])
-                         (make-begin `((set! ,u ,v) ,(trivialize rem))))]
+        [()  (values '() '())]
+        [(,simple . ,[rem set!*])
+         (guard (simple? simple))
+         (values `(,simple ,rem ...) set!*)]
+        [(,[Value -> v] . ,[rem set!*])
+         (let ([t (new-t)])
+           (values `(,t ,rem ...) `((set! ,t ,v) ,set!* ...)))]
         [,x (invalid who 'Complex-Opera* x)]
         ))
-    
+
+    #|    This is a relic of my efforts before simply snatching
+    a working configuration from the solution.
+
+    (trace-define (trivialize xpr)
+      (match xpr
+        [() '()]
+        [(,simple . ,[rem]) (guard (simple? simple))
+         `(,simple . ,rem)]
+        [(,[Value -> v] . ,[rem])
+         (let ([t (new-t)])
+           (make-begin `((set! ,t ,v) . ,rem)))]
+        [,x (invalid who 'Complex-Opera* x)]
+        ))
+    |#
+  
     (define (Value v)
       (match v
-        [(if ,[Pred -> p] ,[v] ,[v^]) `(if ,p ,v ,v^)]
-        [(begin ,[Effect -> e*] ... ,[v]) (make-begin `(,e* ... ,v))]
-        [(,binop ,v ,v^) (guard (binop? binop)) (trivialize v)]
+        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
+        [(,binop ,v^ ,v&) (guard (binop? binop))
+         (trivialize `(,binop ,v^ ,v&))]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Value else)]
         ))
@@ -115,22 +127,23 @@
         [(false) p]
         [(if ,[t] ,[c] ,[a]) `(if ,t ,c ,a)]
         [( begin ,[Effect -> e*] ... ,[p]) (make-begin `(,e* ... ,p))]
-        [(,relop ,v ,v^) (guard (relop? relop)) (trivialize p)]
+        [(,relop ,v ,v^) (guard (relop? relop)) (trivialize `(,relop ,v ,v^))]
         [,else (invalid who 'Pred else)]
         ))
     
     (define (Tail t)
       (match t
         [,t (guard (triv? t)) t]
-        [(,binop ,v ,v^) (guard (binop? binop)) (trivialize t)]
+        [(,binop ,v ,v^) (guard (binop? binop)) (trivialize `(,binop ,v ,v^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
-        [(,v ,v* ...) (trivialize t)]
+        [(,v ,v* ...) (trivialize `(,v ,v* ...))]
         [,else (invalid who 'Tail else)]
         ))
     
     (match b
-      [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ... ,new-ulocal* ...) ,t)]
+      [(locals (,uvar* ...) 
+               ,[Tail -> t]) `(locals (,uvar* ... ,new-local* ...) ,t)]
       [,else (invalid who 'Body else)]
       ))
 
