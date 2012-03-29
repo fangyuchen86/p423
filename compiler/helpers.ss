@@ -19,6 +19,7 @@
    error-unless
    error-when
    invalid
+   int64!32?
    uncover-conflicts
   )
   (import
@@ -146,6 +147,14 @@ conflicts so that they freeze to death and die.
     graph
   )
 )
+
+#|
+|| int64!32? : sym
+|| returns #t if the given symbol is strictly an 64-bit integer
+|| and not a 32-bit integer.
+|#
+(define (int64!32? x)
+  (and (not (int32? x)) (int64? x)))
 
 #| relop? : sym --> boolean
  | relop? takes a symbol and returns #t

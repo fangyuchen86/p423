@@ -7,7 +7,7 @@
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012 / 3 / 19
+;; 2012 / 3 / 22
 
 #!chezscheme
 (library (compiler select-instructions)
@@ -25,12 +25,12 @@
 
 (define-who (select-instructions program)
 
-  (define (Body b)
+  (define (Body body)
     
     (define new-ulocal* '())
 
     (define (new-u)
-      (let ([u (unique-name 't)])
+      (let ([u (unique-name 'u)])
         (set! new-ulocal* (cons u new-ulocal*))
         u))
 
@@ -50,7 +50,7 @@
       (case op
         [(- + logor logand) (cond
                               [(or (and (frame-var? y) (frame-var? z))
-                                   (or (int64? z) (label? z)))
+                                   (or (int64!32? z) (label? z)))
                                (let ([u (new-u)])
                                  (make-begin `((set! ,u ,z) (set! ,y (,op ,y ,u)))))]
                               [else `(set! ,y (,op ,y ,z))])]
@@ -59,7 +59,7 @@
                                  (make-begin `((set! ,u ,y)
                                                ,(select-binop-2 op u z)
                                                (set! ,y ,u))))]
-               [(or (label? z) (int64? z)) (let ([u (new-u)])
+               [(or (label? z) (int64!32? z)) (let ([u (new-u)])
                                              (make-begin `((set! ,u ,z) (set! ,y (,op ,y ,u)))))]
                [else `(set! ,y (,op ,y ,z))])]
         [(sra) `(set! ,y (,op ,y ,z))]
@@ -69,7 +69,7 @@
     (define (select-move lhs rhs)
       (cond
         [(and (frame-var? lhs)
-              (or (frame-var? rhs) (int64? rhs) (label? rhs)))
+              (or (frame-var? rhs) (int64!32? rhs) (label? rhs)))
          (let ([u (new-u)])
            (make-begin `((set! ,u ,rhs) (set! ,lhs ,u))))]
         [else `(set! ,lhs ,rhs)]
@@ -86,44 +86,42 @@
 
     (define (select-relop-2 op x y)
       (cond
-        [(or (or (int64? y) (label? y))
+        [(or (or (int64!32? y) (label? y))
              (and (frame-var? x) (frame-var? y)))
          (let ([u (new-u)])
            (make-begin `((set! ,u ,y) (,op ,x ,u))))]
         [else `(,op ,x ,y)]
         ))
     
-    (define (Effect e)
-      (match e
-        [(nop) e]
-        [(begin ,[e] ,[e*] ...) `(begin ,e ,e* ...)]
+    (define (Effect effect)
+      (match effect
+        [(nop) '(nop)]
+        [(begin ,[e*] ... ,[e]) `(begin ,e* ... ,e)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(set! ,v (,binop ,t0 ,t1))
-         (select-binop v binop t0 t1)]
-        [(set! ,v ,t)
-         (select-move v t)]
+        [(set! ,v (,binop ,t ,t^)) (select-binop v binop t t^)]
+        [(set! ,v ,t) (select-move v t)]
         [,else (invalid who 'Effect else)]
         ))
     
-    (define (Pred p)
-      (match p
-        [(true) p]
-        [(false) p]
+    (define (Pred pred)
+      (match pred
+        [(true) '(true)]
+        [(false) '(false)]
         [(begin ,[Effect -> e*] ... ,[p]) `(begin ,e* ... ,p)]
         [(if ,[p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,relop ,triv0 ,triv1) (select-relop relop triv0 triv1)]
+        [(,relop ,triv0 ,triv1) (guard (relop? relop)) (select-relop relop triv0 triv1)]
         [,else (invalid who 'Pred else)]
         ))
     
-    (define (Tail t)
-      (match t
+    (define (Tail tail)
+      (match tail
         [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(,t ,loc* ...) `(,t ,loc* ...)]
         [,else (invalid who 'Tail else)]
         ))
     
-    (match b
+    (match body
       [(locals (,loc* ...)
          (ulocals (,uloc* ...)
            (locate (,home* ...)
