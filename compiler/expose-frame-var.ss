@@ -53,9 +53,9 @@
       [(nop) '(nop)]
       [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-      [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^])) (guard (binop? binop))
+      [(set! ,[Triv -> uvar] (,binop ,[Triv -> t] ,[Triv -> t^])) (guard (binop? binop))
        `(set! ,uvar (,binop ,t ,t^))]
-      [(set! ,uvar ,[Triv -> t]) `(set! ,uvar ,t)]
+      [(set! ,[Triv -> uvar] ,[Triv -> t]) `(set! ,uvar ,t)]
       [,else (invalid who 'Effect else)]
       ))
 

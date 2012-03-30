@@ -71,7 +71,7 @@
           (binop? xpr)
           (relop? xpr)))
 
-    (trace-define (trivialize xpr)
+    (define (trivialize xpr)
       (let-values ([(code set!*) (simplify xpr)])
         (make-begin `(,@set!* ,code))))
 
@@ -126,24 +126,24 @@
         [(true) p]
         [(false) p]
         [(if ,[t] ,[c] ,[a]) `(if ,t ,c ,a)]
-        [( begin ,[Effect -> e*] ... ,[p]) (make-begin `(,e* ... ,p))]
+        [(begin ,[Effect -> e*] ... ,[p]) (make-begin `(,e* ... ,p))]
         [(,relop ,v ,v^) (guard (relop? relop)) (trivialize `(,relop ,v ,v^))]
         [,else (invalid who 'Pred else)]
         ))
     
     (define (Tail t)
       (match t
-        [,t (guard (triv? t)) t]
-        [(,binop ,v ,v^) (guard (binop? binop)) (trivialize `(,binop ,v ,v^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
+        [(,binop ,v ,v^) (guard (binop? binop)) (trivialize `(,binop ,v ,v^))]
         [(,v ,v* ...) (trivialize `(,v ,v* ...))]
+        [,t (guard (triv? t)) t]
         [,else (invalid who 'Tail else)]
         ))
     
     (match b
-      [(locals (,uvar* ...) 
-               ,[Tail -> t]) `(locals (,uvar* ... ,new-local* ...) ,t)]
+      [(locals (,local* ...) ,[Tail -> t])
+       `(locals (,local* ... ,new-local* ...) ,t)]
       [,else (invalid who 'Body else)]
       ))
 

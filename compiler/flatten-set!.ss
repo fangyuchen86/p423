@@ -29,7 +29,7 @@
       (match value
         [(begin ,[Effect -> e*] ... ,[v]) (make-begin `(,e* ... ,v))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,binop ,t ,t^) (guard (binop? binop)) `(,binop ,t ,t^)]
+        [(,binop ,[Triv -> t] ,[Triv -> t^]) (guard (binop? binop)) `(set! ,uvar (,binop ,t ,t^))]
         [,t (guard (triv? t)) `(set! ,uvar ,t)]
         [,else (invalid who 'Value else)]
         ))
@@ -86,7 +86,7 @@
     (define (Program p)
       (match p
         [(letrec ([,label* (lambda (,uvar* ...) ,[Body -> b*])] ...) ,[Body -> b])
-         `(letrec ([,label* (lambda (,uvar* ...)) ] ...) ,b)]
+         `(letrec ([,label* (lambda (,uvar* ...) ,b*) ] ...) ,b)]
         [,else (invalid who 'Program else)]
         ))
       

@@ -37,7 +37,7 @@
       (cond
         [(null? param*) '()]
         [(null? reg*)
-         (cons (index->frame-var fv-index) (loop (cdr param*) reg* (+ fv-index)))]
+         (cons (index->frame-var fv-index) (loop (cdr param*) reg* (+ fv-index 1)))]
         [else (cons (car reg*) (loop (cdr param*) (cdr reg*) fv-index))]
         )))
 
