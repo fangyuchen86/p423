@@ -23,7 +23,6 @@
     (compiler flatten-set!)               ;; a6
     (compiler impose-calling-conventions) ;; a6
     (compiler uncover-frame-conflict)     ;; a5
-    (compiler introduce-allocation-forms) ;; a5
     (compiler select-instructions)        ;; a5
     (compiler uncover-register-conflict)  ;; a4
     (compiler assign-registers)           ;; a4
@@ -54,7 +53,6 @@
   (flatten-set!)
   (impose-calling-conventions)
   (uncover-frame-conflict)
-  (introduce-allocation-forms)
   (iterate
    (select-instructions)
    (uncover-register-conflict)
