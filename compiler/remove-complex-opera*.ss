@@ -73,7 +73,7 @@
 
     (define (trivialize xpr)
       (let-values ([(code set!*) (simplify xpr)])
-        (make-begin `(,@set!* ,code))))
+        (make-begin `(,@set!* ,code)))) ;; stolen from solution. -_- I had weird parens.
 
     (define (simplify xpr)
       (match xpr
@@ -86,21 +86,6 @@
            (values `(,t ,rem ...) `((set! ,t ,v) ,set!* ...)))]
         [,x (invalid who 'Complex-Opera* x)]
         ))
-
-    #|    This is a relic of my efforts before simply snatching
-    a working configuration from the solution.
-
-    (trace-define (trivialize xpr)
-      (match xpr
-        [() '()]
-        [(,simple . ,[rem]) (guard (simple? simple))
-         `(,simple . ,rem)]
-        [(,[Value -> v] . ,[rem])
-         (let ([t (new-t)])
-           (make-begin `((set! ,t ,v) . ,rem)))]
-        [,x (invalid who 'Complex-Opera* x)]
-        ))
-    |#
   
     (define (Value v)
       (match v
@@ -108,6 +93,7 @@
         [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
         [(,binop ,v^ ,v&) (guard (binop? binop))
          (trivialize `(,binop ,v^ ,v&))]
+        [(,[Value -> v^] ,[Value -> v*] ...) `(,v^ ,v* ...)]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Value else)]
         ))
@@ -118,6 +104,7 @@
         [(set! ,uvar ,[Value -> v]) `(set! ,uvar ,v)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[e*] ... ,[e]) (make-begin `(,e* ... ,e))]
+        [(,[Value -> v^] ,[Value -> v*] ...) `(,v^ ,v* ...)]
         [,else (invalid who 'Effect else)]
         ))
     

@@ -1,12 +1,13 @@
 ;; flatten-set!.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 A6
+;; part of p423-sp12/srwaggon-p423
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
-;; introduced in A6
+;; created in A6
 ;; 2012 / 3 / 26
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
+;; modified in A7
 ;; 2012 / 3 / 26
 
 #!chezscheme
@@ -30,6 +31,7 @@
         [(begin ,[Effect -> e*] ... ,[v]) (make-begin `(,e* ... ,v))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(,binop ,[Triv -> t] ,[Triv -> t^]) (guard (binop? binop)) `(set! ,uvar (,binop ,t ,t^))]
+        [(,[Value -> v] ,[Value -> v*] ...) `(set! ,uvar (,v ,v* ...))]
         [,t (guard (triv? t)) `(set! ,uvar ,t)]
         [,else (invalid who 'Value else)]
         ))
@@ -44,7 +46,8 @@
       (match v
         [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,binop ,t ,t^) (guard (binop? binop)) `(,binop ,t ,t^)]
+        [(,binop ,[v^] ,[v&]) (guard (binop? binop)) `(,binop ,v^ ,v&)]
+        [(,[v^] ,[v*] ...) `(,v^ ,v* ...)]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Value else)]
         ))
@@ -55,6 +58,7 @@
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(nop) '(nop)]
         [(set! ,uvar ,v) (flatten uvar v)]
+        [(,[Value -> v] ,[Value -> v*] ...) `(,v ,v* ...)]
         [,else (invalid who 'Effect else)]
         ))
     
