@@ -38,6 +38,7 @@
     || before parameters are given stack-frame memory locations.
     |#
     (define (find-homes param* home-gen)
+      (set! fv-index 0)
       (let loop ([param* param*][reg* parameter-registers])
         (cond
           [(null? param*) '()]
@@ -52,10 +53,10 @@
         (set! fv-index (add1 fv-index))
         fv))
 
-    (define (new-nfv)
-      (let ([nfv (unique-name 'nfv)])
-        (begin (set! frame-vars (cons nfv frame-vars))
-               nfv)))
+    (define (new-uvar)
+        (let ([nfv (unique-name 'nfv)])
+          (begin (set! frame-vars (cons nfv frame-vars))
+                 nfv)))
 
     (define (Triv t)
       (match t
@@ -75,7 +76,7 @@
            (set! ,uvar ,return-value-register)))]
         [(set! ,uvar ,[Triv -> t]) `(set! ,uvar ,t)]
         [(,rator ,rand* ...)
-         (let ([rp (unique-name 'rp)][loc* (find-homes rand* new-nfv)])
+         (let ([rp (unique-name 'rp)][loc* (find-homes rand* new-uvar)])
            (let ([rand* (reverse rand*)][loc-rand* (reverse loc*)])
              (begin 
                (set! frame* (cons (reverse frame-vars) frame*))
@@ -99,7 +100,6 @@
         ))
     
     (define (Tail t rp)
-      (set! fv-index 0) ;; suggestion per brett. Not completely understood...
       (match t
         [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
