@@ -93,7 +93,8 @@
         [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
         [(,binop ,v^ ,v&) (guard (binop? binop))
          (trivialize `(,binop ,v^ ,v&))]
-        [(,[Value -> v^] ,[Value -> v*] ...) `(,v^ ,v* ...)]
+        [(,[Value -> v^] ,[Value -> v*] ...) (trivialize `(,v^ ,v* ...));;`(,v^ ,v* ...)
+         ]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Value else)]
         ))
@@ -104,7 +105,8 @@
         [(set! ,uvar ,[Value -> v]) `(set! ,uvar ,v)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[e*] ... ,[e]) (make-begin `(,e* ... ,e))]
-        [(,[Value -> v^] ,[Value -> v*] ...) `(,v^ ,v* ...)]
+        [(,[Value -> v^] ,[Value -> v*] ...) (trivialize `(,v^ ,v* ...));;`(,v^ ,v* ...)
+         ]
         [,else (invalid who 'Effect else)]
         ))
     
