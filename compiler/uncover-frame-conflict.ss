@@ -1,11 +1,13 @@
 ;; uncover-frame-conflict.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 a5
+;; part of p423-sp12/srwaggon-p423
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
-;; introduced a5
+;; introduced A5
+;; 2012 / 2 / ??
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
+;; revised in A7
 ;; 2012 / 2 / 21
 
 #!chezscheme
@@ -24,8 +26,14 @@
 
   (define (Body body) ;; Body --> Body
     (match body
-      [(locals ,uvar* ,tail)
-       `(locals ,uvar* (frame-conflict ,(uncover-conflicts tail uvar* who frame-var?) ,tail))]
+      [(locals ,uvar* (new-frames ,frame*,tail))
+       (let*-values ([(graph call-live) (uncover-conflicts tail uvar* who frame-var?)]
+                     [(spills) (filter uvar? call-live)])
+         `(locals ,uvar*
+            (new-frames ,frame*
+               (spills ,spills
+                 (frame-conflict ,graph
+                   (call-live ,call-live ,tail))))))]
       [,else (invalid who 'Body else)]))
   
   (define (Program program) ;; Program --> Program
@@ -35,6 +43,5 @@
       [,else (invalid who 'Program else)]))
   
   (Program program)
-)
 
-) ;; end library
+)) ;; end library

@@ -123,7 +123,7 @@
     ;; (define (Body b)
     (match b
       [(locals (,uvar* ...) ,t)
-       (let* ([rp (unique-name 'rp)] [tail (Tail t rp)]
+       (let* ([rp (unique-name 'rp)][tail (Tail t rp)]
               [loc* (find-homes param* new-fv)])
          `(locals (,rp ,param* ... ,uvar* ... ,frame* ... ...)
             (new-frames ,frame*

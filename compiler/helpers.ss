@@ -30,11 +30,14 @@
     (framework helpers)
   )
 
+
 #|
-uncover-conflict takes the blankets away from
-conflicts so that they freeze to death and die.
+|| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
 |# 
 (define (uncover-conflicts tail uvar* who qual)
+  
+  (define call-live '())
+
   ;; graph-add! : symbol symbol conflict-graph --> conflict-graph
   ;; graph-add! side-effects the given conflict-graph by set-cdr!'ing
   ;; the given symbol's association's cdr as the set-cons of its current
@@ -45,9 +48,8 @@ conflicts so that they freeze to death and die.
         (if assoc
             (set-cdr! assoc (set-cons conflict (cdr assoc)))
             (cons (list s conflict) graph)
-    )))
-    graph
-  )
+            )))
+    graph)
 
   ;; update-graph : symbol live-set conflict-graph --> conflict-graph
   ;; update-graph takes a symbol, a live set, and a conflict graph
@@ -58,8 +60,11 @@ conflicts so that they freeze to death and die.
                    [graph graph])
           (cond 
             [(null? conflicts) graph]
-            [else (loop (cdr conflicts) (graph-add!
-                                         (car conflicts) s (graph-add! s (car conflicts) graph)))]))
+            [else
+             (loop (cdr conflicts)
+                   (graph-add! (car conflicts) s
+                               (graph-add! s (car conflicts) graph)))]
+            ))
         graph))
   
   ;; handle : symbol pred live-set --> live-set
@@ -84,19 +89,25 @@ conflicts so that they freeze to death and die.
   ;; Effect : Effect* Effect conflict-graph live-set --> conflict-graph live-set
   (define (Effect effect* effect graph live)
     (match effect
-      [(nop) (Effect* effect* graph live)]
-      [(set! ,lhs (,binop ,rhs0 ,rhs1)) (guard (binop? binop))
-       (let peacock! ([ls (remove lhs live)])
-         (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]
-      [(set! ,lhs ,rhs)
-       (let ([ls (remove lhs live)])
-         (Effect* effect* (update-graph lhs ls graph) (handle rhs ls)))]
+      [(begin ,e* ...) (Effect* (append effect* e*) graph live)]
       [(if ,pred ,conseq ,altern)
        (let*-values ([(ga lsa) (Effect '() altern graph live)]
                      [(gc lsc) (Effect '() conseq graph live)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (Effect* effect* gp lsp))]
-      [(begin ,e* ...) (Effect* (append effect* e*) graph live)]
+      [(nop) (Effect* effect* graph live)]
+
+      [(return-point ,label ,tail)
+       (let-values ([(gt lst) (Tail tail graph '())])
+         (set! call-live (union call-live live))
+         (Effect* effect* gt (union lst live)))]
+
+      [(set! ,lhs (,binop ,rhs0 ,rhs1)) (guard (binop? binop))
+       (let ([ls (remove lhs live)])
+         (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]
+      [(set! ,lhs ,rhs)
+       (let ([ls (remove lhs live)])
+         (Effect* effect* (update-graph lhs ls graph) (handle rhs ls)))]
       [,else (invalid who 'Effect else)]))
 
   ;; Effect* : Effect* conflict-graph live-set --> conflict-graph live-set
@@ -144,7 +155,8 @@ conflicts so that they freeze to death and die.
   (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]
                 [(live-set) '()]
                 [(graph lives) (Tail tail empty-graph live-set)])
-    graph
+
+    (values graph call-live)
   )
 )
 
