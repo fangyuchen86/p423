@@ -8,7 +8,27 @@
 ;; 2012/2/15
 
 (library (compiler compile)
-  (export p423-compile p423-compile-step)
+  (export p423-compile
+          p423-compile-step
+          ;; My passes:
+          verify-scheme              ;; a1
+          remove-complex-opera*      ;; a6
+          flatten-set!               ;; a6
+          impose-calling-conventions ;; a6
+          uncover-frame-conflict     ;; a5
+          select-instructions        ;; a5
+          uncover-register-conflict  ;; a4
+          assign-registers           ;; a4
+          assign-frame               ;; a5
+          ;;everybody-home             ;; a4
+          finalize-frame-locations   ;; a5
+          discard-call-live          ;; a4
+          finalize-locations         ;; a5
+          expose-frame-var           ;; a4
+          expose-basic-blocks        ;; a3
+          flatten-program            ;; a2
+          generate-x86-64            ;; a1
+          )
   (import 
     ;; Load Chez Scheme primitives:
     (chezscheme)
