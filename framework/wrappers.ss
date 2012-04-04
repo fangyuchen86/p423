@@ -291,8 +291,12 @@
        ...
        body)]))
 
+(define-syntax well-known
+  (syntax-rules ()
+    [(_ (wk ...) body) body]))
+
 (define-record procedure ((immutable code) (immutable env)) ()
-    ([constructor $make-procedure]))
+  ([constructor $make-procedure]))
 
 (define make-procedure
     (lambda (code i)
@@ -320,6 +324,12 @@
     pass->wrapper
     source/wrapper
     verify-scheme/wrapper
+    optimize-direct-call/wrapper
+    remove-anonymous-lambda/wrapper
+    optimize-self-reference/wrapper
+    optimize-free/wrapper
+    uncover-well-known/wrapper
+    sanitize-binding-forms/wrapper
     uncover-free/wrapper
     convert-closures/wrapper
     introduce-procedure-primitives/wrapper
@@ -364,8 +374,15 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((optimize-direct-call) optimize-direct-call/wrapper)
+      ((remove-anonymous-lambda) remove-anonymous-lambda/wrapper)
+      ((optimize-self-reference) optimize-self-reference/wrapper)
+      ((optimize-free) optimize-free/wrapper)
+      ((uncover-well-known) uncover-well-known/wrapper) 
+      ((sanitize-binding-forms) sanitize-binding-forms/wrapper)
       ((uncover-free) uncover-free/wrapper)
       ((convert-closures) convert-closures/wrapper)
+      ((optimize-known-call) optimize-known-call/wrapper)
       ((introduce-procedure-primitives) introduce-procedure-primitives/wrapper)
       ((lift-letrec) lift-letrec/wrapper)
       ((normalize-context) normalize-context/wrapper)
@@ -401,7 +418,10 @@
 ;; verify-scheme/wrapper
 ;;-----------------------------------
 (define-language-wrapper
-  (source/wrapper verify-scheme/wrapper)
+  (source/wrapper verify-scheme/wrapper
+   optimize-direct-call/wrapper
+   remove-anonymous-lambda/wrapper
+   sanitize-binding-forms/wrapper)
   (x)
   (environment env)
   (import
@@ -424,15 +444,38 @@
 
 ;;-----------------------------------
 ;; convert-closures/wrapper
+;; optimize-known-call/wrapper
+;; analyze-closure-size/wrapper
+;; optimize-free/wrapper
+;; optimize-self-reference/wrapper
 ;;-----------------------------------
-(define-language-wrapper convert-closures/wrapper
+(define-language-wrapper
+  (convert-closures/wrapper optimize-known-call/wrapper
+   analyze-closure-size/wrapper optimize-free/wrapper
+   optimize-self-reference/wrapper) 
   (x)
   (environment env)
   (import
     (only (framework wrappers aux)
-      * + - cookie bind-free fill-closure! closures)
+      * + - cookie bind-free closures)
     (except (chezscheme) * + -))
   ,x)
+
+
+
+;;-----------------------------------
+;; uncover-well-known
+;;-----------------------------------
+(define-language-wrapper
+  (uncover-well-known/wrapper) 
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      * + - cookie bind-free closures well-known)
+    (except (chezscheme) * + -))
+  ,x)
+
 
 ;;----------------------------------------
 ;; introduce-procedure-primitives/wrapper
