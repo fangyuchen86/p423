@@ -146,6 +146,6 @@
   (begin
     (unique-name-count 1000)
     (Program program)
-        )
+    )
 
 )) ;; end library
