@@ -76,7 +76,7 @@
            (set! ,uvar ,return-value-register)))]
         [(set! ,uvar ,[Triv -> t]) `(set! ,uvar ,t)]
         [(,rator ,rand* ...)
-         (let ([rp (unique-name 'rp)][loc* (find-homes rand* new-uvar)])
+         (let ([rp (unique-label 'rp)][loc* (find-homes rand* new-uvar)])
            (let ([rand* (reverse rand*)][loc-rand* (reverse loc*)])
              (begin 
                (set! frame* (cons (reverse frame-vars) frame*))
@@ -85,7 +85,7 @@
                ,(make-begin
                  `((set! ,loc-rand* ,rand*) ...
                    (set! ,return-address-register ,rp)
-                   (,rator ,frame-pointer-register ,loc* ...)))))))]
+                   (,rator ,return-address-register ,frame-pointer-register ,loc* ...)))))))]
         [,else (invalid who 'Effect else)]
         ))
 
@@ -120,7 +120,7 @@
         [,else (invalid who 'Tail else)]
         ))
     
-    ;; (define (Body b)
+    ;; (define (Body b param*)
     (match b
       [(locals (,uvar* ...) ,t)
        (let* ([rp (unique-name 'rp)][tail (Tail t rp)]

@@ -52,7 +52,7 @@
   (remove-complex-opera*)
   (flatten-set!)
   (impose-calling-conventions)
-  ;;(uncover-frame-conflict)
+  (uncover-frame-conflict)
   ;;(iterate
   ;;(select-instructions)
   ;;(uncover-register-conflict)
