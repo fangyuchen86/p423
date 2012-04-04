@@ -96,12 +96,10 @@
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (Effect* effect* gp lsp))]
       [(nop) (Effect* effect* graph live)]
-
       [(return-point ,label ,tail)
        (let-values ([(gt lst) (Tail tail graph '())])
-         (set! call-live (union call-live live))
-         (Effect* effect* gt (union lst live)))]
-
+           (set! call-live (union call-live live))
+           (Effect* effect* gt (union lst live)))]
       [(set! ,lhs (,binop ,rhs0 ,rhs1)) (guard (binop? binop))
        (let ([ls (remove lhs live)])
          (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]
@@ -141,7 +139,7 @@
       [(begin ,effect* ... ,tail)
        (let*-values ([(gt lst) (Tail tail graph live)]
                      [(ge* lse*) (Effect* effect* gt lst)])
-         (values graph (union lst lse*)))]
+         (values graph lse*))]
       [(if ,pred ,conseq ,altern)
        (let*-values ([(ga lsa) (Tail altern graph live)]
                      [(gc lsc) (Tail conseq graph live)]
