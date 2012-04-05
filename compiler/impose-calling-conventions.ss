@@ -39,11 +39,11 @@
     |#
     (define (find-homes param* home-gen)
       (set! fv-index 0)
-      (let loop ([param* param*][reg* parameter-registers])
+      (let loop ([param* param*][reg* parameter-registers][generated '()])
         (cond
-          [(null? param*) '()]
-          [(null? reg*) (cons (home-gen) (loop (cdr param*) reg*))]
-          [else (cons (car reg*) (loop (cdr param*) (cdr reg*)))]
+          [(null? param*) (reverse generated)]
+          [(null? reg*) (loop (cdr param*) reg* (cons (home-gen) generated))]
+          [else (cons (car reg*) (loop (cdr param*) (cdr reg*) generated))]
           )))
 
     (define fv-index 0)
