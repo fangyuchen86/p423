@@ -83,7 +83,7 @@
            (let ([s (car assoc)]
                  [flicts (cdr assoc)])
              (update-graph s flicts g1))) g0)
-    g1 #|Pacman blocker|#
+    g1 #|Pacman blocker|# 
   )
   
   ;; Effect : Effect* Effect conflict-graph live-set --> conflict-graph live-set
@@ -128,7 +128,9 @@
        (let*-values ([(ga lsa) (Pred altern Cgraph Agraph Clive Alive)]
                      [(gc lsc) (Pred conseq Cgraph Agraph Clive Alive)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
-         (values (graph-union! Cgraph Agraph) (union lsp lsc lsa)))]
+         ;;(values (graph-union! Cgraph Agraph) (union lsp lsc lsa))
+         (values gp lsp)
+         )]
       [(,relop ,triv0 ,triv1)
        (values (graph-union! Cgraph Agraph) (handle triv0 (handle triv1 (union Clive Alive))))]
       [,else (invalid who 'Pred else)]))
@@ -144,7 +146,9 @@
        (let*-values ([(ga lsa) (Tail altern graph live)]
                      [(gc lsc) (Tail conseq graph live)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
-         (values graph (union lsp lsc lsa)))]
+         ;;(values graph (union lsp lsc lsa)))
+         (values graph lsp))
+       ]
       [(,triv ,loc* ...)
        (values graph (handle triv
                              (union (filter (lambda (x) (or (uvar? x) (qual x))) loc*) live)))]
