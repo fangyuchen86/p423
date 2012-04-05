@@ -143,9 +143,9 @@
       [,else (invalid who 'Program else)]
       ))
 
-  (begin
-    (unique-name-count 1000)
+  ;;(begin
+    ;;(unique-name-count 1000)
     (Program program)
-    )
+    ;;)
 
 )) ;; end library

@@ -16,11 +16,11 @@
           flatten-set!               ;; a6
           impose-calling-conventions ;; a6
           uncover-frame-conflict     ;; a5
+          pre-assign-frame           ;; a7
           select-instructions        ;; a5
           uncover-register-conflict  ;; a4
           assign-registers           ;; a4
           assign-frame               ;; a5
-          ;;everybody-home             ;; a4
           finalize-frame-locations   ;; a5
           discard-call-live          ;; a4
           finalize-locations         ;; a5
@@ -43,6 +43,7 @@
     (compiler flatten-set!)               ;; a6
     (compiler impose-calling-conventions) ;; a6
     (compiler uncover-frame-conflict)     ;; a5
+    (compiler pre-assign-frame)
     (compiler select-instructions)        ;; a5
     (compiler uncover-register-conflict)  ;; a4
     (compiler assign-registers)           ;; a4
@@ -73,6 +74,7 @@
   (flatten-set!)
   (impose-calling-conventions)
   (uncover-frame-conflict)
+  (pre-assign-frame)
   ;;(iterate
   ;;(select-instructions)
   ;;(uncover-register-conflict)

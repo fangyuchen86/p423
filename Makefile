@@ -13,8 +13,6 @@
 TESTS=tests.ss
 ENV=env.ss
 
-
-
 #-- Rules --#
 
 # The main point of this file is to create the compiler environment
@@ -22,7 +20,7 @@ all : env
 
 # Create the compiler environment
 env : $(ENV)
-	scheme $(ENV)
+	petite $(ENV)
 
 # Run custom tests on the compiler
 test : $(TESTS)
