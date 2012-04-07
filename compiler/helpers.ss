@@ -156,10 +156,8 @@
 
   (let*-values ([(empty-graph) (map (lambda (s) (cons s '())) uvar*)]
                 [(live-set) '()]
-                [(graph lives) (Tail tail empty-graph live-set)])
-
-    (values graph call-live)
-  )
+                [(graph lives) (Tail tail empty-graph live-set)])   
+    (values graph call-live))
 )
 
 #|
