@@ -764,10 +764,10 @@
                       (f.215 (vector-length v1.214)))
                     '#f))])
         (cons
-          (dot-product.218 '(1 2) '#2(3 4))
+          (dot-product.218 '(1 2) '#(3 4))
           (cons
-            (dot-product.218 '#2(1 2) '#3(3 4 5))
-            (cons (dot-product.218 '#4(4 5 6 7) '#4(2 9 8 1)) '()))))
+            (dot-product.218 '#(1 2) '#(3 4 5))
+            (cons (dot-product.218 '#(4 5 6 7) '#(2 9 8 1)) '()))))
       (letrec ([num-list?.206 (lambda (ls.210)
                                 (if (null? ls.210)
                                     '#t
@@ -966,8 +966,8 @@
                                   (sum-all.106 (cdr p.107))))])
         (sum-all.106
           (lambda ()
-            '#3((7 8 1) #3(81 23 8)
-                        #3(#2(#1(12) 56) 18 ((1 2) (3 ((4)) 5)))))))
+            '#((7 8 1) #(81 23 8)
+                        #(#(#(12) 56) 18 ((1 2) (3 ((4)) 5)))))))
       (letrec ([div.69 (lambda (d.71 n.70)
                          (letrec ([f.72 (lambda (d.75 n.74 q.73)
                                           (if (> n.74 d.75)
