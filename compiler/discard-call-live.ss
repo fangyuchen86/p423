@@ -19,18 +19,28 @@
   
 
 (define-who (discard-call-live program)
+
+
+  (define (Effect e)
+    (match e
+      []
+      []
+      [,else (invalid who 'Effect else)]
+      ))
   
   (define (Tail t)
     (match t
-      [(if ,pred ,[tail0] ,[tail1]) `(if ,pred ,tail0 ,tail1)]
-      [(begin ,effect* ... ,[tail]) `(begin ,effect* ... ,tail)]
+      [(if ,pred ,[tail^] ,[tail&]) `(if ,pred ,tail^ ,tail&)]
+      [(begin ,[Effect -> effect*] ... ,[tail^]) `(begin ,effect* ... ,tail^)]
       [(,triv ,loc* ...) `(,triv)]
-      [,else (invalid who 'Tail else)]))
+      [,else (invalid who 'Tail else)]
+      ))
 
   (define (Body b)
     (match b
-      [(locate ,uvar-env ,[Tail -> tail])
-       `(locate ,uvar-env ,tail)]))
+      [(locate ,uvar-env ,[Tail -> tail]) `(locate ,uvar-env ,tail)]
+      [,else (invalid who 'Body else)]
+      ))
 
   (define (Block b)
     (match b
@@ -39,10 +49,9 @@
 
   (define (Program p)
     (match p
-      [(letrec (,[Block -> block*] ...) ,[Body -> body])
-       `(letrec ,block* ,body)]
+      [(letrec (,[Block -> block*] ...) ,[Body -> body]) `(letrec ,block* ,body)]
       [,else (invalid who 'Program else)]))
 
   (Program program)
-)
-)
+
+))

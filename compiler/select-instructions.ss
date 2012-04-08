@@ -95,9 +95,10 @@
     
     (define (Effect effect)
       (match effect
-        [(nop) '(nop)]
         [(begin ,[e*] ... ,[e]) `(begin ,e* ... ,e)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(nop) '(nop)]
+        [(return-point ,rp ,[Tail -> t]) `(return-point ,rp ,t)] 
         [(set! ,v (,binop ,t ,t^)) (select-binop v binop t t^)]
         [(set! ,v ,t) (select-move v t)]
         [,else (invalid who 'Effect else)]
