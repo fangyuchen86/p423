@@ -936,11 +936,11 @@
             [let.124 (lambda (x.119 y.118) (- y.118 x.119))]
             [if.123 (lambda (x.117 y.116 z.115) (cons x.117 z.115))]
             [cons.122 (lambda (x.114 y.113) (cons y.113 x.114))]
-            [|+.121| '16])
+            [x.121 '16])
         (begin
-          (set! |+.121| (* '16 '2))
+          (set! x.121 (* '16 '2))
           (cons.122
-            (let.124 ((quote.125 (lambda () '0))) |+.121|)
+            (let.124 ((quote.125 (lambda () '0))) x.121)
             (if.123 (quote.125 (if '#f '#f '#t)) '720000 '-1))))
       (letrec ([sum-all.106 (lambda (x.112)
                               (if (fixnum? x.112)
