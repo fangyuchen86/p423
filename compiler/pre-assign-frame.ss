@@ -35,14 +35,14 @@
     (let ([graph (map (lambda (y) (cons (car y) (remove x (cdr y)))) graph)])
       (remove (assq x graph) graph)))  
   
-  #| play-nice
-  || : uvar* conflict-graph spills-list
-  || --> `((uvar register) ...) spills-list
+  #| find-homes
+  || : uvar* conflict-graph home*
+  || --> `((uvar register) ...) home*
   ||
   || Finds and binds each uvar to a
   || non-conflicting frame-var.
   |#
-  (define (play-nice uvar* cgraph home*)
+  (define (find-homes uvar* cgraph home*)
     (if (null? uvar*) home*
         (let* ([uvar (car uvar*)]
                [conflict* (assq uvar cgraph)]
@@ -57,7 +57,7 @@
                [home (let find-home ([index 0])
                        (let ([fv (index->frame-var index)])
                          (if (memq fv used) (find-home (add1 index)) fv)))])
-        (play-nice (remove uvar uvar*) cgraph `((,uvar ,home) . ,home*))
+        (find-homes (remove uvar uvar*) cgraph `((,uvar ,home) . ,home*))
   )))
 
   #| Body
@@ -78,7 +78,7 @@
              (frame-conflict ,fgraph
                (call-live (,call-live* ...) ,tail)))))
        
-       (let ([bind* (play-nice spill* fgraph '())]) ;; hesitant to have this third arg be null (a7)
+       (let ([bind* (find-homes spill* fgraph '())]) ;; hesitant to have this third arg be null (a7)
          `(locals ,(difference local* spill*)
             (new-frames (,frame* ...)
               (locate (,bind* ...)

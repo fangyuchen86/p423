@@ -43,7 +43,8 @@
     (compiler flatten-set!)               ;; a6
     (compiler impose-calling-conventions) ;; a6
     (compiler uncover-frame-conflict)     ;; a5
-    (compiler pre-assign-frame)
+    (compiler pre-assign-frame)           ;; a7
+    (compiler assign-new-frame)           ;; a7
     (compiler select-instructions)        ;; a5
     (compiler uncover-register-conflict)  ;; a4
     (compiler assign-registers)           ;; a4
@@ -75,6 +76,7 @@
   (impose-calling-conventions)
   (uncover-frame-conflict)
   (pre-assign-frame)
+  (assign-new-frame)
   ;;(iterate
   ;;(select-instructions)
   ;;(uncover-register-conflict)
