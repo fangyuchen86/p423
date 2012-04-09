@@ -116,11 +116,11 @@
 
       (match b
         [(locals (,loc* ...)
-                 (new-frames (,frame* ...)
-                             (locate (,home* ...)
-                                     (frame-conflict ,fgraph
-                                                     (call-live (,call-live ...)
-                                                                ,[Tail -> t])))))
+           (new-frames (,frame* ...)
+             (locate (,home* ...)
+               (frame-conflict ,fgraph
+                 (call-live (,call-live ...)
+                   ,[Tail -> t])))))
 
          (let* ([dereference (lambda (v)
                                (let ([home (assq v home*)])
@@ -133,9 +133,9 @@
            (unless (null? dereffed) (set! frame-size (apply max dereffed)))
            (let ([bind* (find-homes call-live fgraph home* frame-size)])
              `(locals (,loc* ...)
-                      (ulocals ()
-                               (locate (,home* ...) (,(begin (set! frame-size (add1 frame-size)) frame-size) ,call-live)))
-                      (frame-conflict ,fgraph ,t))))]
+                (ulocals ()
+                  (locate (,home* ... ,bind* ...)
+                    (frame-conflict ,fgraph ,t))))))]
         [,else (invalid who 'Body else)]
         ))
 
