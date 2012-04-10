@@ -94,12 +94,12 @@
                (register-conflict ,rgraph ,tail))))) ;; <--- LHS || RHS ---V
 
        (let-values ([(bind* spills) (play-nice (union ulocals locals) rgraph '())])
-         (if (null? spills) `(locate ,bind* ,tail)
-             `(locals ,(difference locals spills)
-                (ulocals ,(difference ulocals spills)
-                  (spills ,spills
-                    (locate ,locate
-                      (frame-conflict ,fgraph ,tail)))))))]
+         (if (null? spills) `(locate (,locate ... ,bind* ...) ,tail)
+           `(locals ,(difference locals spills)
+              (ulocals ,(difference ulocals spills)
+                (spills ,spills
+                  (locate ,locate
+                    (frame-conflict ,fgraph ,tail)))))))]
       [(locate (,home* ...) ,tail) `(locate (,home* ...) ,tail)]
       [,else (invalid who 'Body else)]
   ))

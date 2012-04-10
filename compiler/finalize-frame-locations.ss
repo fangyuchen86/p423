@@ -59,7 +59,7 @@
         [(if ,[(Pred env) -> pred] ,[conseq] ,[altern])
          `(if ,pred ,conseq ,altern)]
         [(nop) `(nop)]
-        [(return-point ,label ,[Tail -> t]) `(return-point ,label ,t)]
+        [(return-point ,label ,[(Tail env) -> t]) `(return-point ,label ,t)]
         [(set! ,[(Var env) -> var]
                (,binop ,[(Triv env) -> triv0] ,[(Triv env) -> triv1]))
          `(set! ,var (,binop ,triv0 ,triv1))]
@@ -89,20 +89,21 @@
          `(begin ,effect* ... ,tail)]
         [(if ,[(Pred env) -> pred] ,[conseq] ,[altern])
          `(if ,pred ,conseq ,altern)]
-        [(,[(Triv env) -> triv] ,[Triv -> loc*] ...) `(,triv ,loc* ...)]
+        [(,[(Triv env) -> triv] ,[(Triv env) -> loc*] ...) `(,triv ,loc* ...)]
         [,else (invalid who 'Tail else)]
         )))
   
   (define (Body body)
     (match body
       [(locals (,local* ...)
-               (ulocals (,ulocal* ...)
-                        (locate ([,uvar* ,loc*] ...)
-                                (frame-conflict ,fgraph ,[(Tail (map cons uvar* loc*)) -> tail]))))
+         (ulocals (,ulocal* ...)
+           (locate ([,uvar* ,loc*] ...)
+             (frame-conflict ,fgraph
+               ,[(Tail (map cons uvar* loc*)) -> tail]))))
        `(locals (,local* ...)
-                (ulocals (,ulocal* ...)
-                         (locate ([,uvar* ,loc*] ...)
-                                 (frame-conflict ,fgraph ,tail))))]
+          (ulocals (,ulocal* ...)
+            (locate ([,uvar* ,loc*] ...)
+              (frame-conflict ,fgraph ,tail))))]
       [(locate (,home* ...) ,[(Tail home*) -> tail])
        `(locate (,home* ...) ,tail)]
       [,else (invalid who 'Body else)]

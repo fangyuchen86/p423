@@ -123,7 +123,7 @@
                                  )))]
               [dereffed (map dereference call-live)]
               [frame-size (add1 (if (null? dereffed) 0 (apply max dereffed)))])
-         `(locals (,loc* ...)
+         `(locals ,(difference loc* (apply append frame*))
             (ulocals ()
               (locate (,home* ... ,(assign-frame frame* frame-size) ...)
                 (frame-conflict ,fgraph ,((Tail frame-size) t))))))]

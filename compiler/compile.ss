@@ -86,7 +86,7 @@
   (finalize-frame-locations)
   )
   (discard-call-live)
-  ;(finalize-locations)
+  (finalize-locations)
   ;;(expose-frame-var)
   ;;(expose-basic-blocks)
   ;;(flatten-program)
