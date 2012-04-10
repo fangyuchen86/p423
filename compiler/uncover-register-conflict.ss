@@ -28,11 +28,13 @@
          (ulocals (,ulocal* ...)
            (locate (,home* ...)
              (frame-conflict ,frame-conflict-graph ,tail))))
-       `(locals (,local* ...)
-          (ulocals (,ulocal* ...)
-            (locate (,home* ...)
-              (frame-conflict ,frame-conflict-graph
-                (register-conflict ,(uncover-conflicts tail (union local* ulocal*)  who register?) ,tail)))))]
+       
+       (let*-values ([(rgraph call-live) (uncover-conflicts tail (union local* ulocal*) who register?)])
+         `(locals (,local* ...)
+            (ulocals (,ulocal* ...)
+              (locate (,home* ...)
+                (frame-conflict ,frame-conflict-graph
+                  (register-conflict ,rgraph ,tail))))))]
       [(locate (,home* ...) ,tail) `(locate (,home* ...) ,tail)]
       [,else (invalid who 'Body else)]))
   
@@ -43,7 +45,4 @@
     [,else (invalid who 'Program else)]))
   
   (Program program)
-)
-
-  
-) ;; End Library
+)) ;; End Library
