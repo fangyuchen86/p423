@@ -65,8 +65,8 @@
           [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^]))
            (guard (binop? binop))
            `(set! ,(Triv uvar) (,binop ,t ,t^))]
-          [(set! ,uvar ,[Triv -> t])
-           (if (eq? uvar t) '(nop) `(set! ,(Triv uvar) ,t))]
+          [(set! ,[Triv -> uvar] ,[Triv -> t])
+           (if (equal? uvar t) '(nop) `(set! ,(Triv uvar) ,t))]
           [,else (invalid who 'Effect else)]
           ))
 

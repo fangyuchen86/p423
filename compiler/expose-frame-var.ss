@@ -37,74 +37,59 @@
  |#
 (define-who (expose-frame-var program)
 
-  (define (Triv offset)
-    (lambda (t)
-      (match t
-        [,t^ (guard (frame-var? t^))
-             (values (make-disp-opnd frame-pointer-register
-                                     (- (ash (frame-var->index t^) word-shift) offset)) offset)]
-        [,t^ (guard (triv? t^)) (values t^ offset)]
-        [,else (invalid who 'Triv else)]
-        )))
+(define fp-offset 0)
 
-  (define (Effect offset)
-    (lambda (e)
-      (match e
-        [(nop) (values '(nop) offset)]
-        [(begin ,[(Effect offset) -> e* e*offset] ... ,[e^ e^offset]) (values (make-begin `(,e* ... ,e^)) offset)]
-        [(if ,t ,c ,a)
-         (let*-values ([(p^ poffset) ((Pred    offset) t)]
-                       [(c^ coffset) ((Effect poffset) c)]
-                       [(a^ aoffset) ((Effect poffset) a)])
-           (if (= coffset aoffset) (values `(if ,p^ ,c^ ,a^) coffset)
-               (errorf who "conseq and altern return with differing offsets" )))]
-        [(set! ,fp (- ,fp ,nb)) (guard (eq? fp frame-pointer-register))
-         (values '(nop) (- offset nb))]
-        [(set! ,fp (+ ,fp ,nb)) (guard (eq? fp frame-pointer-register))
-         (values '(nop) (+ offset nb))]
-        [(set! ,[(Triv offset) -> uvar uvaroffset] (,binop ,[(Triv offset) -> t toffset] ,[(Triv offset) -> t^]))
-         (guard (binop? binop)) (values `(set! ,uvar (,binop ,t ,t^)) offset)]
-        [(set! ,[(Triv offset) -> uvar uvaroffset] ,[(Triv offset) -> t toffset]) (values `(set! ,uvar ,t) offset)]
-        [,else (invalid who 'Effect else)]
-        )))
-    
-  (define (Pred offset)
-    (lambda (p)
-      (match p
-        [(true)  (values '(true)  offset)]
-        [(false) (values '(false) offset)]
-        [(begin ,[(Effect offset) -> e* e*offset] ... ,[p^ p^offset]) (values (make-begin `(,e* ... ,p^)) offset)]
-        [(if ,t ,c ,a)
-         (let*-values ([(p^ poffset) ((Pred  offset) t)]
-                       [(c^ coffset) ((Pred poffset) c)]
-                       [(a^ aoffset) ((Pred poffset) a)])
-           (if (= coffset aoffset) (values `(if ,p^ ,c^ ,a^) coffset)
-               (errorf who "conseq and altern return with differing offsets" )))]
-        [(,relop ,[(Triv offset) -> t toffset] ,[(Triv offset) -> t^ t^offset])
-         (guard (relop? relop)) (values `(,relop ,t ,t^) toffset)]
-        [,else (invalid who 'Pred else)]
-      )))
+  (define (Triv t)
+    (match t
+      [,t^ (guard (frame-var? t^))
+           (make-disp-opnd frame-pointer-register
+                           (- (ash (frame-var->index t^) word-shift) fp-offset))]
+      [,t^ (guard (triv? t^)) t^]
+      [,else (invalid who 'Triv else)]
+      ))
+
+  (define (Effect e)
+    (match e
+      [(nop) '(nop)]
+      [(begin ,[ef*] ... ,[ef]) (make-begin `(,ef* ... ,ef))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(return-point ,label ,[Tail -> tl]) `(return-point ,label ,tl)]
+      [(set! ,fp (- ,fp ,nb)) (guard (eq? fp frame-pointer-register))
+       (set! fp-offset (- fp-offset nb)) 
+       `(set! ,fp (- ,fp ,nb))]
+       [(set! ,fp (+ ,fp ,nb)) (guard (eq? fp frame-pointer-register))
+       (set! fp-offset (+ fp-offset nb))
+       `(set! ,fp (+ ,fp ,nb))]
+      [(set! ,[Triv -> uv] (,binop ,[Triv -> tr^] ,[Triv -> tr&]))
+       (guard (binop? binop)) `(set! ,uv (,binop ,tr^ ,tr&))]
+      [(set! ,[Triv -> uv] ,[Triv -> tr]) `(set! ,uv ,tr)]
+      [,else (invalid who 'Effect else)]
+      ))
   
-  (define (Tail offset)
-    (lambda (t)
-      (match t
-        [(,[(Triv offset) -> t^ offset]) (values `(,t^) offset)]
-        [(begin ,[(Effect offset) -> e* offset] ... ,[t^]) (values (make-begin `(,e* ... ,t^)) offset)]
-        [(if ,t ,c ,a)
-         (let*-values ([(p^ poffset) ((Pred  offset) t)]
-                       [(c^ coffset) ((Tail poffset) c)]
-                       [(a^ aoffset) ((Tail poffset) a)])
-           (if (= coffset aoffset) (values `(if ,p^ ,c^ ,a^) coffset)
-               (errorf who "conseq and altern return with differing offsets" )))]
-        [,t^ (guard (triv? t^)) (let-values ([(t^ t^offset) ((Triv offset) t^)])
-                                  t^)]
-        [,else (invalid who 'Tail else)]
-        )))
+  (define (Pred p)
+    (match p
+      [(true)  '(true)]
+      [(false) '(false)]
+      [(begin ,[Effect -> ef*] ... ,[pr])
+       (make-begin `(,ef* ... ,pr))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(,relop ,[Triv -> tr] ,[Triv -> tr^]) (guard (relop? relop)) `(,relop ,tr ,tr^)]
+      [,else (invalid who 'Pred else)]
+      ))
   
+  (define (Tail t)
+    (match t
+      [(,[Triv -> tr]) `(,tr)]
+      [(begin ,[Effect -> ef*] ... ,[tl]) (make-begin `(,ef* ... ,tl))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [,tr (guard (triv? tr)) (Triv tr)]
+      [,else (invalid who 'Tail else)]
+      ))
+
   (define (Program p)
     (match p
-      [(letrec ([,label (lambda (,uvar* ...) ,[(Tail 0) -> t* offset])] ...) ,[(Tail 0) -> t offset])
-       `(letrec ([,label (lambda (,uvar* ...) ,t*)] ...) ,t)]
+      [(letrec ([,label (lambda (,uvar* ...) ,[Tail -> tl*])] ...) ,[Tail -> tl])
+       `(letrec ([,label (lambda (,uvar* ...) ,tl*)] ...) ,tl)]
       [,else (invalid who 'Program else)]
       ))
   
