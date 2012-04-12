@@ -23,7 +23,7 @@ env : $(ENV)
 	scheme $(ENV)
 
 # Run custom tests on the compiler
-test : $(TESTS)
+tests : $(TESTS)
 	cat $(TESTS) | scheme $(ENV)
 
 # Run the testing on the compiler

@@ -9,7 +9,7 @@
 
 (library (compiler compile)
   (export p423-compile
-          p423-compile-step
+          p423-step
           ;; My passes:
           verify-scheme              ;; a1
           remove-complex-opera*      ;; a6
@@ -69,7 +69,7 @@
   "./t")
 
 ;; Defines the compiler
-(define-compiler (p423-compile p423-compile-step pass->wrapper)
+(define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
   (remove-complex-opera*)
   (flatten-set!)
@@ -78,19 +78,19 @@
   (pre-assign-frame)
   (assign-new-frame)
   (iterate
-  (select-instructions)
-  (uncover-register-conflict)
-  (assign-registers)
-  (break/when everybody-home?)
-  (assign-frame)
-  (finalize-frame-locations)
+   (finalize-frame-locations)
+   (select-instructions)
+   (uncover-register-conflict)
+   (assign-registers)
+   (break/when everybody-home?)
+   (assign-frame)
   )
   (discard-call-live)
   (finalize-locations)
-  ;;(expose-frame-var)
-  ;;(expose-basic-blocks)
-  ;;(flatten-program)
-  ;;(generate-x86-64 assemble)
+  (expose-frame-var)
+  (expose-basic-blocks)
+  (flatten-program)
+  (generate-x86-64 assemble)
   )
 
   ;; See the drivers.ss file for other options when defining a compiler

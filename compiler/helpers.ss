@@ -99,7 +99,7 @@
       [(return-point ,label ,tail)
        (let-values ([(gt lst) (Tail tail graph '())])
            (set! call-live (union call-live live))
-           (Effect* effect* gt (union lst live)))]
+           (Effect* effect* gt (union lst (filter (lambda (x) (or (uvar? x) (frame-var? x))) live))))]
       [(set! ,lhs (,binop ,rhs0 ,rhs1)) (guard (binop? binop))
        (let ([ls (remove lhs live)])
          (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]
