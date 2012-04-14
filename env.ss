@@ -3,4 +3,5 @@
  (framework test-suite)
  (framework helpers)
  (compiler compile)
+ (tests)
 )
