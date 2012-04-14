@@ -93,11 +93,12 @@
       [(nop) (expose-effect* effect* acc)]
       [(set! . ,x) (expose-effect* effect* `((set! . ,x) ,acc ...))]
       [(return-point ,label ,tl)
-       (let*-values ([(texpr tbinds) (expose-tail tl)])
-         (values texpr
-                 `(,tbinds ...
-                  [,label (lambda () ,(make-begin acc))]
-                  )))]
+       (let*-values ([(texpr tbinds) (expose-tail tl)]
+                     [(eexpr ebinds) (expose-effect* effect* `(,texpr))])
+         (values eexpr
+                 `(,ebinds ...
+                   [,label (lambda () ,(make-begin acc))])
+                 ))]
       [(if ,pred ,conseq ,altern)
        (let ([clbl (unique-label 'c)]
              [albl (unique-label 'a)]

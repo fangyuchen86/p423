@@ -55,10 +55,10 @@
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(return-point ,label ,[Tail -> tl]) `(return-point ,label ,tl)]
       [(set! ,fp (- ,fp ,nb)) (guard (eq? fp frame-pointer-register))
-       (set! fp-offset (- fp-offset nb)) 
+       (set! fp-offset (+ fp-offset nb)) 
        `(set! ,fp (- ,fp ,nb))]
        [(set! ,fp (+ ,fp ,nb)) (guard (eq? fp frame-pointer-register))
-       (set! fp-offset (+ fp-offset nb))
+       (set! fp-offset (- fp-offset nb))
        `(set! ,fp (+ ,fp ,nb))]
       [(set! ,[Triv -> uv] (,binop ,[Triv -> tr^] ,[Triv -> tr&]))
        (guard (binop? binop)) `(set! ,uv (,binop ,tr^ ,tr&))]
