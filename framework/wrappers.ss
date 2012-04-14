@@ -1,6 +1,7 @@
 (library (framework wrappers aux)
   (export
     env
+    alloc
     handle-overflow
     set!
     rewrite-opnds
@@ -38,6 +39,16 @@
      (define name `(define-syntax name body)))
     ((_ (define name body))
      (define name `(define name body)))))
+
+(wrap
+  (define alloc
+    (lambda (nbytes)
+      (unless (fxzero? (fxremainder nbytes word-size))
+        (error 'alloc "~s is not a multiple of word size" nbytes))
+      (let ([addr ,allocation-pointer-register])
+        (set! ,allocation-pointer-register (+ addr nbytes))
+        (check-heap-overflow ,allocation-pointer-register)
+        addr))))
 
 (define int64-in-range?
   (lambda (x)
@@ -210,10 +221,11 @@
   (export
     pass->wrapper
     source/wrapper
-    verify-scheme/wrapper
+    verify-uil/wrapper
     remove-complex-opera*/wrapper
     flatten-set!/wrapper
     impose-calling-conventions/wrapper
+    expose-allocation-pointer/wrapper
     uncover-frame-conflict/wrapper
     pre-assign-frame/wrapper
     assign-new-frame/wrapper
@@ -225,6 +237,7 @@
     discard-call-live/wrapper
     finalize-locations/wrapper
     expose-frame-var/wrapper
+    expose-memory-operands/wrapper
     expose-basic-blocks/wrapper
     flatten-program/wrapper
     generate-x86-64/wrapper)
@@ -236,16 +249,17 @@
     (only (framework wrappers aux)
       env rewrite-opnds compute-frame-size
       return-point-complex return-point-simple
-      new-frames set!))
+      new-frames set! alloc))
 
 (define pass->wrapper
   (lambda (pass)
     (case pass
       ((source) source/wrapper)
-      ((verify-scheme) verify-scheme/wrapper)
+      ((verify-uil) verify-uil/wrapper)
       ((remove-complex-opera*) remove-complex-opera*/wrapper)
       ((flatten-set!) flatten-set!/wrapper)
       ((impose-calling-conventions) impose-calling-conventions/wrapper)
+      ((expose-allocation-pointer) expose-allocation-pointer/wrapper)
       ((uncover-frame-conflict) uncover-frame-conflict/wrapper)
       ((pre-assign-frame) pre-assign-frame/wrapper)
       ((assign-new-frame) assign-new-frame/wrapper)
@@ -257,6 +271,7 @@
       ((discard-call-live) discard-call-live/wrapper)
       ((finalize-locations) finalize-locations/wrapper)
       ((expose-frame-var) expose-frame-var/wrapper)
+      ((expose-memory-operands) expose-memory-operands/wrapper)
       ((expose-basic-blocks) expose-basic-blocks/wrapper)
       ((flatten-program) flatten-program/wrapper)
       ((generate-x86-64) generate-x86-64/wrapper)
@@ -265,16 +280,16 @@
 
 ;;-----------------------------------
 ;; source/wrapper
-;; verify-scheme/wrapper
+;; verify-uil/wrapper
 ;; remove-complex-opera*/wrapper
 ;; flatten-set!/wrapper
 ;;-----------------------------------
 (define-language-wrapper
-  (source/wrapper verify-scheme/wrapper
+  (source/wrapper verify-uil/wrapper
    remove-complex-opera*/wrapper flatten-set!/wrapper)
   (x)
   (environment env)
-  ,set!
+  ,set! ,alloc
   (import
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
@@ -286,6 +301,23 @@
 ;; impose-calling-conventions/wrapper
 ;;-----------------------------------
 (define-language-wrapper impose-calling-conventions/wrapper
+  (x)
+  (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-complex
+  ,new-frames
+  ,alloc
+  ,set!
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec locals true false nop))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  ,return-value-register)
+
+;;-----------------------------------
+;; expose-allocation-pointer/wrapper
+;;-----------------------------------
+(define-language-wrapper expose-allocation-pointer/wrapper
   (x)
   (environment env)
   (define frame-size ,(compute-frame-size x))
@@ -427,8 +459,11 @@
 
 ;;-----------------------------------
 ;; expose-frame-var/wrapper
+;; expose-memory-operands/wrapper
 ;;-----------------------------------
-(define-language-wrapper expose-frame-var/wrapper (x)
+(define-language-wrapper
+  (expose-frame-var/wrapper expose-memory-operands/wrapper)
+  (x)
   (environment env)
   ,return-point-simple
   ,set!
