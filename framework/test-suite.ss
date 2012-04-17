@@ -842,17 +842,6 @@
                                           ((invoke s2 2) s2))])
                                 (- (+ ((invoke s2 1) s2) ((invoke s2 1) s2)) x)))
                            x))))))))))
-      (if (lambda () 1)
-          (let ((a 2))
-            (if (if ((lambda (x)
-                       (let ((x (set! a (set! a 1))))
-                         x)) 1)
-                    (if (eq? a (void))
-                        #t
-                        #f)
-                    #f)
-                #36rgood        ; dyb: cannot use symbols, so use radix 36
-                #36rbad)))
   
      ; contributed by Ryan Newton
       (letrec
