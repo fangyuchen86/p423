@@ -328,7 +328,7 @@
   (export
     pass->wrapper
     source/wrapper
-    verify-scheme/wrapper
+    parse-scheme/wrapper
     convert-complex-datum/wrapper
     uncover-assigned/wrapper
     purify-letrec/wrapper
