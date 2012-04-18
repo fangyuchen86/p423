@@ -32,9 +32,11 @@
 || Program  --->  (letrec ([<label> (lambda (<uvar>*) <Body>)]*) <Body>)
 || Body     --->  (locals (<uvar>*) <Tail>)
 || Tail     --->  <Triv>
+||           |    (alloc <Value>)
 ||           |    (<binop> <Triv> <Triv>)
 ||           |    (<Triv> <Triv>*)
 ||           |    (if <Pred> <Tail> <Tail>)
+||           |    (mref <Value> <Value>)
 ||           |    (begin <Effect>* <Tail>)
 || Pred     --->  (true)
 ||           |    (false)
@@ -65,19 +67,22 @@
         (set! new-local* (cons t new-local*))
         t))
 
-    (define (simple? xpr)
+    (trace-define (simple? xpr)
       (or (and (integer? xpr) (exact? xpr))
           (label? xpr)
           (uvar? xpr)
           (binop? xpr)
-          (relop? xpr)))
+          (relop? xpr)
+          ;;(eq? xpr 'mref)
+          (eq? xpr 'alloc)
+          ))
 
-    (define (trivialize xpr)
+    (trace-define (trivialize xpr)
       (let-values ([(code set!*) (simplify xpr)])
-        (make-begin `(,@set!* ,code)))) ;; stolen from solution. -_- I had weird parens.
+        (make-begin `(,@set!* ,code))))
 
-    (define (simplify xpr)
-      (match xpr
+    (trace-define (simplify xpr)
+      (trace-match simp xpr
         [()  (values '() '())]
         [(,simple . ,[rem set!*])
          (guard (simple? simple))
@@ -88,20 +93,23 @@
         [,x (invalid who 'Complex-Opera* x)]
         ))
   
-    (define (Value v)
+    (trace-define (Value v)
       (match v
+        [(alloc ,[v^]) (trivialize `(alloc ,v^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
+        [(mref ,[v^] ,[v&]) (trivialize `(mref ,v^ ,v&))]
         [(,binop ,v^ ,v&) (guard (binop? binop))
          (trivialize `(,binop ,v^ ,v&))]
-        [(,[Value -> v^] ,[Value -> v*] ...) (trivialize `(,v^ ,v* ...))
-         ]
+        [(,[Value -> v^] ,[Value -> v*] ...) (trivialize `(,v^ ,v* ...))]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Value else)]
         ))
     
     (define (Effect e)
       (match e
+        [(mset! ,[Value -> v] ,[Value -> v^] ,[Value -> v&])
+         `(mset! ,v ,v^ ,v&)]
         [(nop) e]
         [(set! ,uvar ,[Value -> v]) `(set! ,uvar ,v)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
@@ -122,8 +130,10 @@
     
     (define (Tail t)
       (match t
+        [(alloc ,[Value -> v]) `(alloc ,v)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
+        [(mref ,[Value -> v] ,[Value -> v^]) (trivialize `(mref ,v ,v^))]
         [(,binop ,v ,v^) (guard (binop? binop)) (trivialize `(,binop ,v ,v^))]
         [(,v ,v* ...) (trivialize `(,v ,v* ...))]
         [,t (guard (triv? t)) t]

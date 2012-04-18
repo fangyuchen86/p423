@@ -45,9 +45,7 @@
             [(null? reg*) (let ([home (home-gen)])
                             (cons home (loop (cdr param*) reg*)))]
             [else (cons (car reg*) (loop (cdr param*) (cdr reg*)))]
-            )
-          
-          ))
+            )))
       
       (define fv-index 0)
 
@@ -61,9 +59,9 @@
           (begin (set! frame-vars (cons nfv frame-vars))
                  nfv)))
 
-      (define (Triv t)
-        (match t
-          [,t^ (guard (triv? t^)) t^]
+      (define (Triv tr)
+        (match tr
+          [,tr^ (guard (triv? tr^)) tr^]
           [,else (invalid who 'Triv else)]
           ))
 
@@ -72,6 +70,9 @@
           [(nop) '(nop)]
           [(begin ,[e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
           [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+          [(mset! ,[Triv -> t] ,[Triv -> t^] ,[Triv -> t&]) `(mset! ,t ,t^ ,t&)]
+          [(set! ,uv (alloc ,[Triv -> tr])) `(set! ,uv (alloc ,tr))]
+          [(set! ,uv (mref ,[Triv -> tr] ,[Triv -> tr^])) `(set! ,uv (mref ,tr ,tr^))]
           [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^])) (guard (binop? binop))
            `(set! ,uvar (,binop ,t ,t^))]
           [(set! ,uvar (,rator ,rand* ...))
@@ -104,8 +105,10 @@
       
       (define (Tail t rp)
         (match t
+          [(alloc ,[Triv -> tr]) `(alloc ,tr)]
           [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
           [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+          [(mref ,[Triv -> tr] ,[Triv -> tr^]) `(mref ,tr ,tr^)]
           [(,binop ,[Triv -> t^] ,[Triv -> t&]) (guard (binop? binop))
            (make-begin `((set! ,return-value-register (,binop ,t^ ,t&))
                          (,rp ,frame-pointer-register ,return-value-register)))]

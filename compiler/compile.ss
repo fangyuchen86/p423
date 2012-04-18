@@ -11,10 +11,11 @@
   (export p423-compile
           p423-step
           ;; My passes:
-          verify-scheme              ;; a1
+          verify-uil                 ;; a1
           remove-complex-opera*      ;; a6
           flatten-set!               ;; a6
           impose-calling-conventions ;; a6
+          expose-allocation-pointer  ;; a8
           uncover-frame-conflict     ;; a5
           pre-assign-frame           ;; a7
           select-instructions        ;; a5
@@ -38,10 +39,11 @@
     (framework match)
     (framework helpers)
     ;; My passes:
-    (compiler verify-scheme)              ;; a1
+    (compiler verify-uil)                 ;; a1
     (compiler remove-complex-opera*)      ;; a6
     (compiler flatten-set!)               ;; a6
     (compiler impose-calling-conventions) ;; a6
+    (compiler expose-allocation-pointer)  ;; a8
     (compiler uncover-frame-conflict)     ;; a5
     (compiler pre-assign-frame)           ;; a7
     (compiler assign-new-frame)           ;; a7
@@ -70,10 +72,12 @@
 
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
-  (verify-scheme)
+  (verify-uil)
   (remove-complex-opera*)
   (flatten-set!)
   (impose-calling-conventions)
+  ;;(expose-allocation-pointer)
+#|
   (uncover-frame-conflict)
   (pre-assign-frame)
   (assign-new-frame)
@@ -91,6 +95,7 @@
   (expose-basic-blocks)
   (flatten-program)
   (generate-x86-64 assemble)
+|#
   )
 
   ;; See the drivers.ss file for other options when defining a compiler

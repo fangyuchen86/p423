@@ -28,8 +28,12 @@
     
     (define (flatten uvar value)
       (match value
+        [(alloc ,[Value -> vl]) `(set! ,uvar (alloc ,vl))]
         [(begin ,[Effect -> e*] ... ,[v]) (make-begin `(,e* ... ,v))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        #;[(mset! ,[Value -> vl] ,[Value -> vl^] ,[Value -> vl&])
+         (make-begin `((set! ,uvar (mset! ,vl ,vl^ ,vl&))))]
+        [(mref ,[Value -> vl] ,[Value -> vl^]) (make-begin `((set! ,uvar (mref ,vl ,vl^))))]
         [(,binop ,[Triv -> t] ,[Triv -> t^]) (guard (binop? binop)) `(set! ,uvar (,binop ,t ,t^))]
         [(,[Value -> v] ,[Value -> v*] ...) `(set! ,uvar (,v ,v* ...))]
         [,t (guard (triv? t)) `(set! ,uvar ,t)]
@@ -44,8 +48,10 @@
 
     (define (Value v)
       (match v
+        [(alloc ,[v^]) `(alloc ,v^)]
         [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(mref ,[v^] ,[v&]) `(mref ,v^ ,v&)]
         [(,binop ,[v^] ,[v&]) (guard (binop? binop)) `(,binop ,v^ ,v&)]
         [(,[v^] ,[v*] ...) `(,v^ ,v* ...)]
         [,t (guard (triv? t)) t]
@@ -56,9 +62,10 @@
       (match e
         [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(mset! ,[Value -> v] ,[Value -> v^] ,[Value -> v&]) `(mset! ,v ,v^ ,v&)]
         [(nop) '(nop)]
         [(set! ,uvar ,v) (flatten uvar v)]
-        [(,[Value -> v] ,[Value -> v*] ...) `(,v ,v* ...)]
+        [(,[Value -> vl] ,[Value -> vl*] ...) `(,vl ,vl* ...)]
         [,else (invalid who 'Effect else)]
         ))
     
@@ -73,10 +80,12 @@
      
     (define (Tail t)
       (match t
+        [(alloc ,[Value -> v]) `(alloc ,v)]
         [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(mref ,[Value -> v] ,[Value -> v^]) `(mref ,v ,v^)]
         [(,binop ,t ,t^) (guard (binop? binop)) `(,binop ,t ,t^)]
-        [(,[Triv -> t] ,[Triv -> t*] ...) `(,t ,t* ...)]
+        [(,[Value -> vl] ,[Value -> vl*] ...) `(,vl ,vl* ...)]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Tail else)]
         ))
