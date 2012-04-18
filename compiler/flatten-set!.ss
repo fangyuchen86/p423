@@ -31,8 +31,6 @@
         [(alloc ,[Value -> vl]) `(set! ,uvar (alloc ,vl))]
         [(begin ,[Effect -> e*] ... ,[v]) (make-begin `(,e* ... ,v))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        #;[(mset! ,[Value -> vl] ,[Value -> vl^] ,[Value -> vl&])
-         (make-begin `((set! ,uvar (mset! ,vl ,vl^ ,vl&))))]
         [(mref ,[Value -> vl] ,[Value -> vl^]) (make-begin `((set! ,uvar (mref ,vl ,vl^))))]
         [(,binop ,[Triv -> t] ,[Triv -> t^]) (guard (binop? binop)) `(set! ,uvar (,binop ,t ,t^))]
         [(,[Value -> v] ,[Value -> v*] ...) `(set! ,uvar (,v ,v* ...))]

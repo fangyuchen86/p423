@@ -67,22 +67,23 @@
         (set! new-local* (cons t new-local*))
         t))
 
-    (trace-define (simple? xpr)
+    (define (simple? xpr)
       (or (and (integer? xpr) (exact? xpr))
           (label? xpr)
           (uvar? xpr)
           (binop? xpr)
           (relop? xpr)
-          ;;(eq? xpr 'mref)
-          (eq? xpr 'alloc)
+          (eq? 'alloc xpr)
+          (eq? 'mref xpr)
+          (eq? 'mset! xpr)
           ))
 
-    (trace-define (trivialize xpr)
+    (define (trivialize xpr)
       (let-values ([(code set!*) (simplify xpr)])
         (make-begin `(,@set!* ,code))))
 
-    (trace-define (simplify xpr)
-      (trace-match simp xpr
+    (define (simplify xpr)
+      (match xpr
         [()  (values '() '())]
         [(,simple . ,[rem set!*])
          (guard (simple? simple))
@@ -93,35 +94,34 @@
         [,x (invalid who 'Complex-Opera* x)]
         ))
   
-    (trace-define (Value v)
+    (define (Value v)
       (match v
-        [(alloc ,[v^]) (trivialize `(alloc ,v^))]
+        [(alloc ,v^) (trivialize `(alloc ,v^))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[v^]) (make-begin `(,e* ... ,v^))]
-        [(mref ,[v^] ,[v&]) (trivialize `(mref ,v^ ,v&))]
+        [(mref ,v^ ,v&) (trivialize `(mref ,v^ ,v&))]
         [(,binop ,v^ ,v&) (guard (binop? binop))
          (trivialize `(,binop ,v^ ,v&))]
-        [(,[Value -> v^] ,[Value -> v*] ...) (trivialize `(,v^ ,v* ...))]
+        [(,v^ ,v* ...) (trivialize `(,v^ ,v* ...))]
         [,t (guard (triv? t)) t]
         [,else (invalid who 'Value else)]
         ))
     
     (define (Effect e)
       (match e
-        [(mset! ,[Value -> v] ,[Value -> v^] ,[Value -> v&])
-         `(mset! ,v ,v^ ,v&)]
-        [(nop) e]
+        [(mset! ,v ,v^ ,v&) (trivialize `(mset! ,v ,v^ ,v&))]
+        [(nop) '(nop)]
         [(set! ,uvar ,[Value -> v]) `(set! ,uvar ,v)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[e*] ... ,[e]) (make-begin `(,e* ... ,e))]
-        [(,[Value -> v^] ,[Value -> v*] ...) (trivialize `(,v^ ,v* ...))]
+        [(,v^ ,v* ...) (trivialize `(,v^ ,v* ...))]
         [,else (invalid who 'Effect else)]
         ))
     
     (define (Pred p)
       (match p
-        [(true) p]
-        [(false) p]
+        [(true) '(true)]
+        [(false) '(false)]
         [(if ,[t] ,[c] ,[a]) `(if ,t ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[p]) (make-begin `(,e* ... ,p))]
         [(,relop ,v ,v^) (guard (relop? relop)) (trivialize `(,relop ,v ,v^))]
@@ -130,10 +130,10 @@
     
     (define (Tail t)
       (match t
-        [(alloc ,[Value -> v]) `(alloc ,v)]
+        [(alloc ,v) (trivialize `(alloc ,v))]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(begin ,[Effect -> e*] ... ,[t]) (make-begin `(,e* ... ,t))]
-        [(mref ,[Value -> v] ,[Value -> v^]) (trivialize `(mref ,v ,v^))]
+        [(mref ,v ,v^) (trivialize `(mref ,v ,v^))]
         [(,binop ,v ,v^) (guard (binop? binop)) (trivialize `(,binop ,v ,v^))]
         [(,v ,v* ...) (trivialize `(,v ,v* ...))]
         [,t (guard (triv? t)) t]
