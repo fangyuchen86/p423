@@ -95,11 +95,17 @@
                      [(gc lsc) (Effect '() conseq graph live)]
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (Effect* effect* gp lsp))]
+      [(mset! ,base ,offset ,val)
+       (let ([ls (remove base live)])
+         (Effect* effect* (update-graph base ls graph) (handle offset (handle val ls))))]
       [(nop) (Effect* effect* graph live)]
       [(return-point ,label ,tail)
        (let-values ([(gt lst) (Tail tail graph '())])
            (set! call-live (union call-live live))
            (Effect* effect* gt (union lst (filter (lambda (x) (or (uvar? x) (frame-var? x))) live))))]
+      [(set! ,lhs (mref ,base ,offset))
+       (let ([ls (remove lhs live)])
+         (Effect* effect* (update-graph lhs ls graph) (handle base (handle offset ls))))]
       [(set! ,lhs (,binop ,rhs0 ,rhs1)) (guard (binop? binop))
        (let ([ls (remove lhs live)])
          (Effect* effect* (update-graph lhs ls graph) (handle rhs0 (handle rhs1 ls))))]

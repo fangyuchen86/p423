@@ -89,7 +89,7 @@
                                 ,(make-begin
                                   `((set! ,loc-rand* ,rand*) ...
                                     (set! ,return-address-register ,rp)
-                                    (,rator ,return-address-register ,frame-pointer-register ,loc* ...)))))))]
+                                    (,rator ,return-address-register ,allocation-pointer-register ,frame-pointer-register ,loc* ...)))))))]
           [,else (invalid who 'Effect else)]
           ))
 
@@ -105,10 +105,16 @@
       
       (define (Tail t rp)
         (match t
-          [(alloc ,[Triv -> tr]) `(alloc ,tr)]
+          [(alloc ,[Triv -> tr])
+           (make-begin
+            `((set! ,return-value-register (alloc ,tr))
+              (,rp ,frame-pointer-register ,allocation-pointer-register ,return-value-register)))]
           [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
           [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-          [(mref ,[Triv -> tr] ,[Triv -> tr^]) `(mref ,tr ,tr^)]
+          [(mref ,[Triv -> tr] ,[Triv -> tr^])
+           (make-begin
+            `((set! ,return-value-register (mref ,tr ,tr^))
+              (,rp ,frame-pointer-register ,allocation-pointer-register ,return-value-register)))]
           [(,binop ,[Triv -> t^] ,[Triv -> t&]) (guard (binop? binop))
            (make-begin `((set! ,return-value-register (,binop ,t^ ,t&))
                          (,rp ,frame-pointer-register ,return-value-register)))]
@@ -118,11 +124,11 @@
                (make-begin
                 `((set! ,loc-rand* ,rand*) ...
                   (set! ,return-address-register ,rp)
-                  (,rator ,return-address-register ,frame-pointer-register
+                  (,rator ,return-address-register ,allocation-pointer-register ,frame-pointer-register
                           ,loc* ...)))))]
           [,t^ (guard (triv? t^))
                (make-begin `((set! ,return-value-register ,t^)
-                             (,rp ,frame-pointer-register ,return-value-register)))]
+                             (,rp ,frame-pointer-register ,allocation-pointer-register ,return-value-register)))]
           [,else (invalid who 'Tail else)]
           ))
       

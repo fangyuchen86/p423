@@ -46,6 +46,8 @@
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
         [(mset! ,[Triv -> tr] ,[Triv -> tr^] ,[Triv -> tr&]) `(mset! ,tr ,tr^ ,tr&)]
         [(return-point ,label ,[Tail -> tl]) `(return-point ,label ,tl)]
+        [(set! ,uvar (mref ,[Triv -> tr] ,[Triv -> tr^]))
+         `(set! ,uvar (mref ,tr ,tr^))]
         [(set! ,uvar (alloc ,[Triv -> tr]))
          (let ([apr allocation-pointer-register])
            (make-begin `((set! ,uvar ,apr)

@@ -63,6 +63,8 @@
         [(nop) '(nop)]
         [(begin ,[e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
         [(if ,[(Pred frame-size) -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(mset! ,[Triv -> base] ,[Triv -> offset] ,[Triv -> val])
+         `(mset! ,base ,offset ,val)]
         [(return-point ,label ,[(Tail frame-size) -> tail])
          (make-begin
           `((set! ,frame-pointer-register
@@ -72,6 +74,8 @@
                   (- ,frame-pointer-register ,(ash frame-size word-shift)))))]
         [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^])) (guard (binop? binop))
          `(set! ,uvar (,binop ,t ,t^))]
+        [(set! ,uvar (mref ,[Triv -> t] ,[Triv -> t^]))
+         `(set! ,uvar (mref ,t ,t^))]
         [(set! ,uvar ,[Triv -> t]) `(set! ,uvar ,t)]
         [,else (invalid who 'Effect else)]
         )))

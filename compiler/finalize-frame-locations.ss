@@ -58,11 +58,14 @@
          `(begin ,effect* ... ,effect)]
         [(if ,[(Pred env) -> pred] ,[conseq] ,[altern])
          `(if ,pred ,conseq ,altern)]
+        [(mset! ,[(Triv env) -> base] ,[(Triv env) -> offset] ,[(Triv env) -> val])
+         `(mset! ,base ,offset ,val)]
         [(nop) `(nop)]
         [(return-point ,label ,[(Tail env) -> t]) `(return-point ,label ,t)]
-        [(set! ,[(Var env) -> var]
-               (,binop ,[(Triv env) -> triv0] ,[(Triv env) -> triv1]))
-         `(set! ,var (,binop ,triv0 ,triv1))]
+        [(set! ,[(Var env) -> var] (mref ,[(Triv env) -> triv0] ,[(Triv env) -> triv1]))
+         `(set! ,var (mref ,triv0 ,triv1))]
+        [(set! ,[(Var env) -> var] (,binop ,[(Triv env) -> triv0] ,[(Triv env) -> triv1]))
+         (guard (binop? binop)) `(set! ,var (,binop ,triv0 ,triv1))]
         [(set! ,[(Var env) -> var] ,[(Triv env) -> triv])
          (if (eq? var triv) `(nop) `(set! ,var ,triv))]
         [,else (invalid who 'Effect else)]
