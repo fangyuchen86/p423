@@ -1,19 +1,18 @@
 ;; select-instructions.ss
 ;;
-;; part of p423-sp12/srwaggon-p423 A5
+;; part of p423-sp12/srwaggon-p423
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
 ;; introduced in A5
 ;; 2012 / 3 / 19
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012 / 3 / 22
+;; revised in A8
+;; 2012 / 4 / 20
 
 #!chezscheme
 (library (compiler select-instructions)
-  (export 
-   select-instructions
-   )
+  (export select-instructions)
   (import
    ;; Load Chez Scheme primitives:
    (chezscheme)
@@ -33,6 +32,42 @@
       (let ([u (unique-name 'u)])
         (set! new-ulocal* (cons u new-ulocal*))
         u))
+
+    (define (reg? x)
+      (or (register? x) (uvar? x)))
+
+    ;; replaceUnless : predicate expression --> expression bindings
+    ;; replaceUnless takes a predicate and an expression and
+    ;; creates a new uvar to bind to this expression, unless
+    ;; the given expression qualifies under the predicate.
+    (define (replaceUnless pred xpr)
+      (if (pred xpr) (values xpr '())
+          (let ([u (new-u)]) (values u `((set! ,u ,xpr))))))
+
+
+    (define (select-mset! base offset val)
+      (let-values ([(bxpr basebind) (replaceUnless reg? base)]
+                   [(oxpr offsetbind) (replaceUnless int32? offset)]
+                   [(vxpr valbind) (replaceUnless (lambda (x)
+                                                   (or (int32? x)
+                                                       (reg? x))) val)])
+        (make-begin `(,@basebind
+                      ,@offsetbind
+                      ,@valbind
+                      (mset! ,bxpr ,oxpr ,vxpr)))))
+
+    (define (select-mref var base offset)
+      (let-values ([(vxpr varbind) (replaceUnless reg? var)]
+                   [(bxpr basebind) (replaceUnless reg? base)]
+                   [(oxpr offsetbind) (replaceUnless int32? offset)])
+        (make-begin `(,@varbind
+                      ,@basebind
+                      ,@offsetbind
+                      (set! ,vxpr (mref ,bxpr ,oxpr))))))
+    ;; var reg? var uvar
+    ;; base reg? base uvar
+    ;; offset int32? offset uvar
+    
 
     (define (select-binop x op y z)
       (define (commutative? op)
@@ -79,8 +114,8 @@
       (define (swap-relop op)
         (cdr (assq op `((< . >) (> . <) (<= . >=) (>= . <=) (= . =)))))
       (cond
-        [(or (uvar? x) (register? x) (frame-var? x)) (select-relop-2 op x y)]
-        [(or (uvar? y) (register? y) (frame-var? y)) (select-relop-2 (swap-relop op) y x)]
+        [(or (reg? x) (frame-var? x)) (select-relop-2 op x y)]
+        [(or (reg? y) (frame-var? y)) (select-relop-2 (swap-relop op) y x)]
         [else (let ([u (new-u)]) (make-begin `((set! ,u ,x) ,(select-relop-2 op u y))))]
         ))
 
@@ -97,8 +132,10 @@
       (match effect
         [(begin ,[e*] ... ,[e]) `(begin ,e* ... ,e)]
         [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+        [(mset! ,base ,offset ,val) (select-mset! base offset val)]
         [(nop) '(nop)]
-        [(return-point ,rp ,[Tail -> t]) `(return-point ,rp ,t)] 
+        [(return-point ,rp ,[Tail -> t]) `(return-point ,rp ,t)]
+        [(set! ,v (mref ,base ,offset)) (select-mref v base offset)]
         [(set! ,v (,binop ,t ,t^)) (select-binop v binop t t^)]
         [(set! ,v ,t) (select-move v t)]
         [,else (invalid who 'Effect else)]

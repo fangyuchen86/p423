@@ -80,14 +80,14 @@
   (uncover-frame-conflict)
   (pre-assign-frame)
   (assign-new-frame)
-  (iterate
+  ;;(iterate
    (finalize-frame-locations)
-   ;;(select-instructions)
+   (select-instructions)
    ;;(uncover-register-conflict)
    ;;(assign-registers)
-   (break/when everybody-home?)
+   ;;(break/when everybody-home?)
    ;;(assign-frame)
-  )
+  ;;)
   #|
   (discard-call-live)
   (finalize-locations)
