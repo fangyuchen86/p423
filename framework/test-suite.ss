@@ -458,6 +458,7 @@
           (mset! vect.11 40 57)
           (vector-scale!$0 vect.11 10)
           (vector-sum$2 vect.11))))
+
     (letrec ([::$0 (lambda (fst.1 snd.2)
                      (locals (ptr.3)
                        (begin

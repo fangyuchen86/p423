@@ -22,6 +22,7 @@
    (compiler helpers)
   )
 
+
 (define-who (select-instructions program)
 
   (define (Body body)
@@ -40,30 +41,33 @@
     ;; replaceUnless takes a predicate and an expression and
     ;; creates a new uvar to bind to this expression, unless
     ;; the given expression qualifies under the predicate.
-    (define (replaceUnless pred xpr)
+    (define (replaceUnless pred xpr isvarbind?)
       (if (pred xpr) (values xpr '())
-          (let ([u (new-u)]) (values u `((set! ,u ,xpr))))))
+          (let ([u (new-u)]) (values u (if isvarbind? `((set! ,xpr ,u))
+                                           `((set! ,u ,xpr)))))))
 
 
     (define (select-mset! base offset val)
-      (let-values ([(bxpr basebind) (replaceUnless reg? base)]
-                   [(oxpr offsetbind) (replaceUnless int32? offset)]
+      (let-values ([(bxpr basebind) (replaceUnless reg? base #f)]
+                   [(oxpr offsetbind) (replaceUnless int32? offset #f)]
                    [(vxpr valbind) (replaceUnless (lambda (x)
                                                    (or (int32? x)
-                                                       (reg? x))) val)])
+                                                       (reg? x))) val #f)])
         (make-begin `(,@basebind
                       ,@offsetbind
                       ,@valbind
                       (mset! ,bxpr ,oxpr ,vxpr)))))
 
     (define (select-mref var base offset)
-      (let-values ([(vxpr varbind) (replaceUnless reg? var)]
-                   [(bxpr basebind) (replaceUnless reg? base)]
-                   [(oxpr offsetbind) (replaceUnless int32? offset)])
-        (make-begin `(,@varbind
-                      ,@basebind
+      (let-values ([(vxpr varbind) (replaceUnless reg? var #t)]
+                   [(bxpr basebind) (replaceUnless reg? base #f)]
+                   [(oxpr offsetbind) 
+                    (replaceUnless (lambda (x) 
+                                     (or (uvar? x) (int32? x))) offset #f)])
+        (make-begin `(,@basebind
                       ,@offsetbind
-                      (set! ,vxpr (mref ,bxpr ,oxpr))))))
+                      (set! ,vxpr (mref ,bxpr ,oxpr))
+                      ,@varbind))))
     ;; var reg? var uvar
     ;; base reg? base uvar
     ;; offset int32? offset uvar
@@ -181,5 +185,6 @@
         ))
     
   (Program program)
-  
-)) ;; end library
+)
+
+) ;; end library
