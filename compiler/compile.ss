@@ -80,25 +80,26 @@
   (uncover-frame-conflict)
   (pre-assign-frame)
   (assign-new-frame)
-  ;;(iterate
+  (iterate
    (finalize-frame-locations)
    (select-instructions)
-   ;;(uncover-register-conflict)
-   ;;(assign-registers)
-   ;;(break/when everybody-home?)
-   ;;(assign-frame)
-  ;;)
+   (uncover-register-conflict)
+   (assign-registers)
+   (break/when everybody-home?)
+   (assign-frame)
+  )
   #|
   (discard-call-live)
   (finalize-locations)
   (expose-frame-var)
+  (expose-memory-operands)
   (expose-basic-blocks)
   (flatten-program)
   (generate-x86-64 assemble)
 |#
   )
 
-  ;; See the drivers.ss file for other options when defining a compiler
+;; See the drivers.ss file for other options when defining a compiler
 
-  ) ;; End library
+) ;; End library
 

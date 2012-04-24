@@ -89,7 +89,7 @@
                                 ,(make-begin
                                   `((set! ,loc-rand* ,rand*) ...
                                     (set! ,return-address-register ,rp)
-                                    (,rator ,return-address-register ,allocation-pointer-register ,frame-pointer-register ,loc* ...)))))))]
+                                    (,rator ,return-address-register ,frame-pointer-register ,allocation-pointer-register ,loc* ...)))))))]
           [,else (invalid who 'Effect else)]
           ))
 

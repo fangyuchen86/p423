@@ -96,8 +96,7 @@
                      [(gp lsp) (Pred pred gc ga lsc lsa)])
          (Effect* effect* gp lsp))]
       [(mset! ,base ,offset ,val)
-       (let ([ls (remove base live)])
-         (Effect* effect* (update-graph base ls graph) (handle offset (handle val ls))))]
+         (Effect* effect* graph (handle base (handle offset (handle val live))))]
       [(nop) (Effect* effect* graph live)]
       [(return-point ,label ,tail)
        (let-values ([(gt lst) (Tail tail graph '())])
