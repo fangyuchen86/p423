@@ -26,6 +26,7 @@
           discard-call-live          ;; a4
           finalize-locations         ;; a5
           expose-frame-var           ;; a4
+          expose-memory-operands     ;; a8
           expose-basic-blocks        ;; a3
           flatten-program            ;; a2
           generate-x86-64            ;; a1
@@ -56,6 +57,7 @@
     (compiler discard-call-live)          ;; a4
     (compiler finalize-locations)         ;; a5
     (compiler expose-frame-var)           ;; a4
+    (compiler expose-memory-operands)     ;; a8
     (compiler expose-basic-blocks)        ;; a3
     (compiler flatten-program)            ;; a2
     (compiler generate-x86-64)            ;; a1
@@ -89,16 +91,13 @@
    (break/when everybody-home?)
    (assign-frame)
   )
-  
-  ;;(discard-call-live)
-  #|
+  (discard-call-live)
   (finalize-locations)
   (expose-frame-var)
   (expose-memory-operands)
   (expose-basic-blocks)
   (flatten-program)
   (generate-x86-64 assemble)
-  |#
   )
 
 ;; See the drivers.ss file for other options when defining a compiler

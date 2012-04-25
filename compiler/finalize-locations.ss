@@ -61,9 +61,12 @@
           [(nop) '(nop)]
           [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
           [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-          [(mset! ,base ,offset ,val) `(mset! ,base ,offset ,val)]
+          [(mset! ,[Triv -> base] ,[Triv -> offset] ,[Triv -> val])
+           `(mset! ,base ,offset ,val)]
           [(return-point ,label ,[(Tail env) -> t]) `(return-point ,label ,t)]
-          [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^]))
+          [(set! ,[Triv -> var] (mref ,[Triv -> base] ,[Triv -> offset]))
+           `(set! ,var (mref ,base ,offset))]
+          [(set! ,[Triv -> uvar] (,binop ,[Triv -> t] ,[Triv -> t^]))
            (guard (binop? binop))
            `(set! ,(Triv uvar) (,binop ,t ,t^))]
           [(set! ,[Triv -> uvar] ,[Triv -> t])

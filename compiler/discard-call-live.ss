@@ -6,8 +6,8 @@
 ;; 
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; revised in A7
-;; 2012 / 4 / 10
+;; revised in A8
+;; 2012 / 4 / 24
 
 #!chezscheme
 (library (compiler discard-call-live)
@@ -26,8 +26,10 @@
     (match e
       [(begin ,[e*] ... ,[e^]) `(begin ,e* ... ,e^)]
       [(if ,[Pred -> t] ,[c] ,[a]) `(if ,t ,c ,a)]
+      [(mset! ,base ,offset ,val) `(mset! ,base ,offset ,val)]
       [(nop) `(nop)]
       [(return-point ,label ,[Tail -> t]) `(return-point ,label ,t)]
+      [(set! ,var (mref ,base ,offset)) `(set! ,var (mref ,base ,offset))]
       [(set! ,x (,binop ,x ,y)) (guard (binop? binop))
        `(set! ,x (,binop ,x ,y))]
       [(set! ,x ,y) `(set! ,x ,y)]

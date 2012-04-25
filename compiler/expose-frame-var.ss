@@ -53,13 +53,15 @@
       [(nop) '(nop)]
       [(begin ,[ef*] ... ,[ef]) (make-begin `(,ef* ... ,ef))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(mset! ,base ,offset ,val) `(mset! ,base ,offset ,val)]
       [(return-point ,label ,[Tail -> tl]) `(return-point ,label ,tl)]
       [(set! ,fp (- ,fp ,nb)) (guard (eq? fp frame-pointer-register))
        (set! fp-offset (+ fp-offset nb)) 
        `(set! ,fp (- ,fp ,nb))]
-       [(set! ,fp (+ ,fp ,nb)) (guard (eq? fp frame-pointer-register))
+      [(set! ,fp (+ ,fp ,nb)) (guard (eq? fp frame-pointer-register))
        (set! fp-offset (- fp-offset nb))
        `(set! ,fp (+ ,fp ,nb))]
+      [(set! ,var (mref ,base ,offset)) `(set! ,var (mref ,base ,offset))]
       [(set! ,[Triv -> uv] (,binop ,[Triv -> tr^] ,[Triv -> tr&]))
        (guard (binop? binop)) `(set! ,uv (,binop ,tr^ ,tr&))]
       [(set! ,[Triv -> uv] ,[Triv -> tr]) `(set! ,uv ,tr)]
