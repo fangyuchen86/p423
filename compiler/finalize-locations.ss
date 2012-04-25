@@ -61,6 +61,7 @@
           [(nop) '(nop)]
           [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
           [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+          [(mset! ,base ,offset ,val) `(mset! ,base ,offset ,val)]
           [(return-point ,label ,[(Tail env) -> t]) `(return-point ,label ,t)]
           [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^]))
            (guard (binop? binop))

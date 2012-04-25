@@ -49,7 +49,10 @@
 
     (define (select-mset! base offset val)
       (let-values ([(bxpr basebind) (replaceUnless reg? base #f)]
-                   [(oxpr offsetbind) (replaceUnless int32? offset #f)]
+                   [(oxpr offsetbind) (replaceUnless (lambda (x)
+                                                       (or (int32? x)
+                                                           (uvar? x)))
+                                                     offset #f)]
                    [(vxpr valbind) (replaceUnless (lambda (x)
                                                    (or (int32? x)
                                                        (reg? x))) val #f)])
