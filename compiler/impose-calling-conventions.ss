@@ -117,14 +117,14 @@
               (,rp ,frame-pointer-register ,allocation-pointer-register ,return-value-register)))]
           [(,binop ,[Triv -> t^] ,[Triv -> t&]) (guard (binop? binop))
            (make-begin `((set! ,return-value-register (,binop ,t^ ,t&))
-                         (,rp ,frame-pointer-register ,return-value-register)))]
+                         (,rp ,frame-pointer-register ,allocation-pointer-register ,return-value-register)))]
           [(,[Triv -> rator] ,[Triv -> rand*] ...)
            (let ([loc* (find-homes rand* new-fv)])
              (let ([rand* (reverse rand*)][loc-rand* (reverse loc*)])
                (make-begin
                 `((set! ,loc-rand* ,rand*) ...
                   (set! ,return-address-register ,rp)
-                  (,rator ,return-address-register ,allocation-pointer-register ,frame-pointer-register
+                  (,rator ,return-address-register ,frame-pointer-register ,allocation-pointer-register
                           ,loc* ...)))))]
           [,t^ (guard (triv? t^))
                (make-begin `((set! ,return-value-register ,t^)

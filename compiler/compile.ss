@@ -81,7 +81,6 @@
   (expose-allocation-pointer)
   (uncover-frame-conflict)
   (pre-assign-frame)
-  
   (assign-new-frame)
   (iterate
    (finalize-frame-locations)
@@ -90,7 +89,7 @@
    (assign-registers)
    (break/when everybody-home?)
    (assign-frame)
-  )
+   )
   (discard-call-live)
   (finalize-locations)
   (expose-frame-var)

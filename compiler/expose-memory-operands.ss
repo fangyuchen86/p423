@@ -27,60 +27,65 @@
 |#
 (define-who (expose-memory-operands program)
 
-    #|
-    ||
-    |#
-    (define (Effect e)
-      (match e
-        [(nop) '(nop)]
-        [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
-        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(mset! ,base ,offset ,val) `(set! ,(make-index-opnd base offset) ,val)]
-        [(return-point ,lbl ,[Tail -> tl]) `(return-point ,lbl ,tl)]
-        [(set! ,var (mref ,base ,offset)) `(set! ,var ,(make-index-opnd base offset))]
-        [(set! ,uvar (,binop ,tr ,tr^)) (guard (binop? binop))
-         `(set! ,uvar (,binop ,tr ,tr^))]
-        [(set! ,uvar ,tr) `(set! ,uvar ,tr)]
-        [,else (invalid who 'Effect else)]
-        ))
+  (define (deref base offset)
+    (if (register? offset)
+        (make-index-opnd base offset)
+        (make-disp-opnd base offset)))
+  
+   #|
+   ||
+   |#
+   (define (Effect e)
+     (match e
+       [(nop) '(nop)]
+       [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
+       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+       [(mset! ,base ,offset ,val) `(set! ,(deref base offset) ,val)]
+       [(return-point ,lbl ,[Tail -> tl]) `(return-point ,lbl ,tl)]
+       [(set! ,var (mref ,base ,offset)) `(set! ,var ,(deref base offset))]
+       [(set! ,uvar (,binop ,tr ,tr^)) (guard (binop? binop))
+        `(set! ,uvar (,binop ,tr ,tr^))]
+       [(set! ,uvar ,tr) `(set! ,uvar ,tr)]
+       [,else (invalid who 'Effect else)]
+       ))
 
-    #|
-    ||
-    |#
-    (define (Pred p)
-      (match p
-        [(true) '(true)]
-        [(false) '(false)]
-        [(begin ,[Effect -> e*] ... ,[p^]) (make-begin `(,e* ... ,p^))]
-        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,relop ,tr ,tr^) (guard (relop? relop)) `(,relop ,tr ,tr^)]
-        [,else (invalid who 'Pred else)]
-        ))
+   #|
+   ||
+   |#
+   (define (Pred p)
+     (match p
+       [(true) '(true)]
+       [(false) '(false)]
+       [(begin ,[Effect -> e*] ... ,[p^]) (make-begin `(,e* ... ,p^))]
+       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+       [(,relop ,tr ,tr^) (guard (relop? relop)) `(,relop ,tr ,tr^)]
+       [,else (invalid who 'Pred else)]
+       ))
 
-    #|
-    ||
-    |#
-    (define (Tail t)
-      (match t
-        [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
-        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,binop ,tr^ ,tr&) (guard (binop? binop)) `(,binop ,tr^ ,tr&)]
-        ;;[(,tr^ ,tr* ...) `(,tr^ ,tr* ...)]
-        ;;[,tr^ tr^]
-        [(,triv) `(,triv)]
-        [,else (invalid who 'Tail else)]
-        ))
+   #|
+   ||
+   |#
+   (define (Tail t)
+     (match t
+       [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
+       [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
+       [(,binop ,tr^ ,tr&) (guard (binop? binop)) `(,binop ,tr^ ,tr&)]
+       ;;[(,tr^ ,tr* ...) `(,tr^ ,tr* ...)]
+       ;;[,tr^ tr^]
+       [(,triv) `(,triv)]
+       [,else (invalid who 'Tail else)]
+       ))
 
-    #|
-    ||
-    |#
-    (define (Program p)
-      (match p
-        [(letrec ([,label (lambda (,uvar* ...) ,[Tail -> t*])] ...) ,[Tail -> t])
-         `(letrec ([,label (lambda (,uvar* ...) ,t*)] ...) ,t)]
-        [,else (invalid who 'Program else)]
-        ))
+   #|
+   ||
+   |#
+   (define (Program p)
+     (match p
+       [(letrec ([,label (lambda (,uvar* ...) ,[Tail -> t*])] ...) ,[Tail -> t])
+        `(letrec ([,label (lambda (,uvar* ...) ,t*)] ...) ,t)]
+       [,else (invalid who 'Program else)]
+       ))
 
-    (Program program)
+   (Program program)
 
-    )) ;; end library
+   )) ;; end library
