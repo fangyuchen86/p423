@@ -31,8 +31,43 @@
   )
 
 
-#|
-|| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
+#| The list of Value primitives.
+|#
+(define value-prims
+  '(+ - * car cdr cons make-vector vector-length vector-ref void))
+
+#| value-prim? : expression --> boolean
+|| Determines if the given expression is an Value primitive.
+|#
+(define (value-prim? expr)
+  (and #t (memq expr value-prims)))
+
+#| The list of predicate primitives.
+|#
+(define pred-prims
+  '(< <= = >= > boolean? eq? fixnum? null? pair? vector?))
+
+#| pred-prim? : expression --> boolean
+|| Determines if the given expression is a Predicate primitive.
+|#
+(define (pred-prim? expr)
+  (and #t (memq expr pred-prims)))
+
+#| The list of Effect primitives.
+|#
+(define effect-prims
+  '(set-car! set-cdr! vector-set!))
+
+#| effect-prim? : expr --> boolean
+|| Determines if the given expression is an Effect primitive.
+|#
+(define (effect-prim? expr)
+  (and #t (memq expr effect-prims)))
+
+
+
+#| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
+||
 |# 
 (define (uncover-conflicts tail uvar* who qual)
   
