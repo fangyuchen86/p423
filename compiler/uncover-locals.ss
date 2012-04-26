@@ -32,7 +32,7 @@
   
   (define (Triv triv)
     (match triv
-      [,tr (guard triv?) '()]
+      [,tr (guard (triv? tr)) '()]
       [,else (invalid who 'Triv else)]
       ))
 
@@ -45,10 +45,11 @@
       [(begin ,[Effect -> ef*] ... ,[vl]) `(,ef* ... ... ,vl ...)]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(,pr ... ,c ... ,a ...)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[vl]) `(,uv* ... ,vl* ... ... ,vl ...)]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard binop?) `(,vl ... ,vl^ ...)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^])
+       (guard (or (eq? 'mref binop) (binop? binop))) `(,vl ... ,vl^ ...)]
       [(,[rator] ,[rand*] ...) `(,rator ... ,rand* ... ...)]
-      [,tr (guard triv?) '()]
-      [,else (invalid who 'Valid else)]
+      [,tr (guard (triv? tr)) '()]
+      [,else (invalid who 'Value else)]
       ))
 
   #|
@@ -88,7 +89,8 @@
       [(begin ,[Effect -> ef*] ... ,[tl]) `(,ef* ... ... ,tl ...)]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(,pr ... ,c ... ,a ...)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[tl]) `(,uv* ... ,vl* ... ... ,tl ...)]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,vl ... ,vl^ ...)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^])
+       (guard (or (eq? 'mref binop) (binop? binop))) `(,vl ... ,vl^ ...)]
       [,tr (guard (triv? tr)) '()]
       [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ... ,rand* ... ...)]
       [,else (invalid who 'Tail else)]

@@ -45,9 +45,9 @@
       [(begin ,[Effect -> ef*] ... ,[vl]) (make-begin `(,ef* ... ,vl))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[vl]) `(let ([,uv* ,vl*] ...) ,vl)]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard binop?) `(,binop ,vl ,vl^)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,binop ,vl ,vl^)]
       [(,[rator] ,[rand*] ...) `(,rator ,rand* ...)]
-      [,tr (guard triv?) tr]
+      [,tr (guard (triv? tr)) tr]
       [,else (invalid who 'Value else)]
       ))
 
