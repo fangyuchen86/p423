@@ -48,9 +48,10 @@
       [(begin ,[Effect -> ef*] ... ,[vl]) (make-begin `(,ef* ... ,vl))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[vl]) (make-begin `((set! ,uv* ,vl*) ... ,vl))]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard binop?) `(,binop ,vl ,vl^)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^])
+       (guard (or (eq? 'mref binop) (binop? binop))) `(,binop ,vl ,vl^)]
       [(,[rator] ,[rand*] ...) `(,rator ,rand* ...)]
-      [,tr (guard triv?) tr]
+      [,tr (guard (triv? tr)) tr]
       [,else (invalid who 'Value else)]
       ))
 
@@ -91,7 +92,8 @@
       [(begin ,[Effect -> ef*] ... ,[tl^]) (make-begin `(,ef* ... ,tl^))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[tl]) (make-begin `((set! ,uv* ,vl*) ... ,tl))]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,binop ,vl ,vl^)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^])
+       (guard (or (eq? 'mref binop) (binop? binop))) `(,binop ,vl ,vl^)]
       [,tr (guard (triv? tr)) tr]
       [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ,rand* ...)]
       [,else (invalid who 'Tail else)]
