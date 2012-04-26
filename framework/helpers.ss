@@ -213,6 +213,7 @@
 #!chezscheme
 (library (framework helpers)
   (export
+    ptr->datum
     define-frame-variables
     $true $nil $void fixnum-range?
     mask-pair tag-pair size-pair disp-car disp-cdr mask-vector
@@ -739,7 +740,7 @@
 ;;; of a unique name or label.  It returns #f if passed something other
 ;;; than a unique name or label.
 ; (module (unique-name unique-name-count extract-suffix unique-label)
-  (define count 0)
+  (define count 1000)
   (define unique-suffix
     (lambda ()
       (set! count (+ count 1))
@@ -959,6 +960,36 @@
     (<= (- (expt 2 (- fixnum-bits 1)))
         n
         (- (expt 2 (- fixnum-bits 1)) 1))))
+
+(define ptr->datum
+  (lambda (ptr)
+    (define istype?
+      (lambda (mask tag x)
+        (= (logand x mask) tag)))
+    (define tagref
+      (lambda (tag disp p)
+        (mref p (- disp tag))))
+    (let f ([ptr ptr])
+      (cond
+        [(eqv? ptr $false) #f]
+        [(eqv? ptr $true) #t]
+        [(eqv? ptr $nil) '()]
+        [(eqv? ptr $void) (void)]
+        [(istype? mask-fixnum tag-fixnum ptr)
+         (ash ptr (- shift-fixnum))]
+        [(istype? mask-pair tag-pair ptr)
+         (cons (f (tagref tag-pair disp-car ptr))
+           (f (tagref tag-pair disp-cdr ptr)))]
+        [(istype? mask-vector tag-vector ptr)
+         (let ([n (f (tagref tag-vector disp-vector-length ptr))])
+           (let ([v (make-vector n)])
+             (do ([i 0 (+ i 1)])
+                 ((= i n) v)
+               (vector-set! v i
+                 (f (tagref tag-vector
+                      (+ disp-vector-data (fxsll i word-shift))
+                      ptr))))))]
+        [else (errorf 'ptr->datum "can't handle ~s" ptr)]))))
 
 (reset-machine-state!)
 

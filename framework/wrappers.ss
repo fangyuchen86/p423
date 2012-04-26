@@ -21,7 +21,10 @@
     call-live
     return-point-complex
     return-point-simple
-    new-frames)
+    new-frames
+    (rename (p423-* *))
+    (rename (p423-+ +))
+    (rename (p423-- -)))
   (import
     (except (chezscheme) set! letrec)
     (framework match)
@@ -213,6 +216,30 @@
   (syntax-rules ()
     [(_ (x* ...) body) body]))
 
+(define-who p423-*
+  (lambda (x y)
+    (import scheme)
+    (let ([ans (* x y)])
+      (unless (fixnum-range? ans)
+        (errorf who "result ~s is outside of fixnum range" ans))
+      ans)))
+
+(define-who p423-+
+  (lambda (x y)
+    (import scheme)
+    (let ([ans (+ x y)])
+      (unless (fixnum-range? ans)
+        (errorf who "result ~s is outside of fixnum range" ans))
+      ans)))
+
+(define-who p423--
+  (lambda (x y)
+    (import scheme)
+    (let ([ans (- x y)])
+      (unless (fixnum-range? ans)
+        (errorf who "result ~s is outside of fixnum range" ans))
+      ans)))
+
 (define (true) #t)
 
 (define (false) #f)
@@ -226,6 +253,7 @@
     pass->wrapper
     source/wrapper
     verify-scheme/wrapper
+    specify-representation/wrapper
     uncover-locals/wrapper
     remove-let/wrapper
     verify-uil/wrapper
@@ -263,6 +291,7 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((specify-representation) specify-representation/wrapper)
       ((uncover-locals) uncover-locals/wrapper)
       ((remove-let) remove-let/wrapper)
       ((verify-uil) verify-uil/wrapper)
@@ -299,10 +328,24 @@
   ,alloc
   (import
     (only (framework wrappers aux)
-      handle-overflow true false nop)
-    (only (chezscheme) set! letrec))
+      handle-overflow true false nop
+      * + -)
+    (except (chezscheme) * + -))
   (reset-machine-state!)
   ,x)
+
+;;-----------------------------------
+;; specify-representation
+;;-----------------------------------
+(define-language-wrapper
+  specify-representation/wrapper
+  (x)
+  (environment env)
+  ,alloc
+  (import
+    (only (framework wrappers aux)
+      handle-overflow true false nop))
+  (ptr->datum ,x))
 
 ;;-----------------------------------
 ;; uncover-locals/wrapper
@@ -316,7 +359,7 @@
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
     (except (chezscheme) set!))
-  ,x)
+  (ptr->datum ,x))
 
 ;;-----------------------------------
 ;; verify-uil/wrapper
@@ -334,7 +377,7 @@
     (only (framework wrappers aux)
       handle-overflow locals true false nop)
     (except (chezscheme) set! lambda))
-  ,x)
+  (ptr->datum ,x))
 
 ;;-----------------------------------
 ;; impose-calling-conventions/wrapper
@@ -352,7 +395,7 @@
       handle-overflow letrec locals true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; expose-allocation-pointer/wrapper
@@ -369,7 +412,7 @@
       handle-overflow letrec locals true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; uncover-frame-conflict/wrapper
@@ -387,7 +430,7 @@
       frame-conflict true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;----------------------------------
 ;; pre-assign-frame
@@ -404,7 +447,7 @@
       frame-conflict true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;----------------------------------
 ;; assign-new-frame
@@ -423,7 +466,7 @@
     (lambda (k)
       (set! ,return-address-register k)
       ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 
 ;;-----------------------------------
@@ -446,7 +489,7 @@
       true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; uncover-register-conflict/wrapper
@@ -461,7 +504,7 @@
       register-conflict true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; assign-registers/wrapper
@@ -476,7 +519,7 @@
       frame-conflict true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; discard-call-live/wrapper
@@ -490,7 +533,7 @@
       handle-overflow letrec locate true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; finalize-locations/wrapper
@@ -504,7 +547,7 @@
       handle-overflow letrec true false nop)
     (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; expose-frame-var/wrapper
@@ -524,7 +567,7 @@
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; expose-basic-blocks/wrapper
@@ -539,7 +582,7 @@
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; flatten-program/wrapper
@@ -555,7 +598,7 @@
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; generate-x86/wrapper
@@ -566,6 +609,6 @@
                   (format "exec '~a'" program)
                   (buffer-mode block)
                   (native-transcoder))])
-    (read in)))
+    (get-line in)))
 
 )
