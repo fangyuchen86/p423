@@ -8,9 +8,11 @@
 ;; 2012/2/15
 
 (library (compiler compile)
-  (export p423-compile
-          p423-step
+  (export p423-compile p423-step
           ;; My passes:
+          verify-scheme              ;; a9
+          uncover-locals             ;; a9
+          remove-let                 ;; a9
           verify-uil                 ;; a1
           remove-complex-opera*      ;; a6
           flatten-set!               ;; a6
@@ -40,6 +42,9 @@
     (framework match)
     (framework helpers)
     ;; My passes:
+    (compiler verify-scheme)              ;; a9
+    (compiler uncover-locals)             ;; a9
+    (compiler remove-let)                 ;; a9
     (compiler verify-uil)                 ;; a1
     (compiler remove-complex-opera*)      ;; a6
     (compiler flatten-set!)               ;; a6
@@ -74,6 +79,9 @@
 
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
+  (verify-scheme)
+  (uncover-locals)
+  (remove-let)
   (verify-uil)
   (remove-complex-opera*)
   (flatten-set!)

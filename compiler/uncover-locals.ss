@@ -61,9 +61,6 @@
       [(if ,[Pred -> pr] ,[c] ,[a]) `(,pr ... ,c ... ,a ...)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[ef]) `(,uv* ... ,vl* ... ... ,ef ...)]
       [(mset! ,[Value -> base] ,[Value -> offset] ,[Value -> vl]) `(,base ... ,offset ... ,vl ...)]
-      [(set! ,uvar (,binop ,[Triv -> tr] ,[Triv -> tr^])) (guard (binop? binop))
-       `(,tr ... ,tr^ ...)]
-      [(set! ,uvar ,[Triv -> tr]) tr]
       [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ... ,rand* ... ...)]
       [,else (invalid who 'Effect else)]
       ))
@@ -78,7 +75,7 @@
       [(begin ,[Effect -> ef*] ... ,[pr]) `(,ef* ... ... ,pr ...)]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(,pr ... ,c ... ,a ...)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[pr]) `(,uv* ... ,vl* ... ... ,pr ...)]
-      [(,relop ,[Triv -> tr] ,[Triv -> tr^]) (guard (relop? relop)) `(,tr ... ,tr^ ...)]
+      [(,relop ,[Value -> vl] ,[Value -> vl^]) (guard (relop? relop)) `(,vl ... ,vl^ ...)]
       [,else (invalid who 'Pred else)]
       ))
 
@@ -91,7 +88,7 @@
       [(begin ,[Effect -> ef*] ... ,[tl]) `(,ef* ... ... ,tl ...)]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(,pr ... ,c ... ,a ...)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[tl]) `(,uv* ... ,vl* ... ... ,tl ...)]
-      [(,binop ,[Triv -> tr] ,[Triv -> tr^]) (guard (binop? binop)) `(,tr ... ,tr^ ...)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,vl ... ,vl^ ...)]
       [,tr (guard (triv? tr)) '()]
       [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ... ,rand* ... ...)]
       [,else (invalid who 'Tail else)]

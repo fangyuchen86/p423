@@ -22,79 +22,88 @@
    (compiler helpers)
    )
 
+#|
+||
+|#
+(define-who ( program)
+
   #|
   ||
   |#
-  (define-who ( program)
+  (define (Triv triv)
+    (match triv
+      [,tr (guard (triv? tr)) tr]
+      [,else (invalid who 'Triv else)]
+      ))
 
-    #|
-    ||
-    |#
-    (define (Triv t)
-      (match t
-        [,t^ (guard (triv? t^)) t^]
-        [,else (invalid who 'Triv else)]
-        ))
+  #|
+  ||
+  |#
+  (define (Value value)
+    (match value
+      [(alloc ,[Value -> vl]) `(alloc ,vl)]
+      [(begin ,[Effect -> ef*] ... ,[vl]) (make-begin `(,ef* ... ,vl))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(let ([,uv* ,[Value -> vl*]] ...) ,[vl]) `(let ([,uv* ,vl*] ...) ,vl)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard binop?) `(,binop ,vl ,vl^)]
+      [(,[rator] ,[rand*] ...) `(,rator ,rand* ...)]
+      [,tr (guard triv?) tr]
+      [,else (invalid who 'Value else)]
+      ))
 
-    #|
-    ||
-    |#
-    (define (Effect e)
-      (match e
-        [(nop) '(nop)]
-        [(begin ,[Effect -> e*] ... ,[e^]) (make-begin `(,e* ... ,e^))]
-        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(set! ,uvar (,binop ,[Triv -> t] ,[Triv -> t^])) (guard (binop? binop))
-         `(set! ,uvar (,binop ,t ,t^))]
-        [(set! ,uvar ,[Triv -> t]) `(set! ,uvar ,t)]
-        [,else (invalid who 'Effect else)]
-        ))
+  #|
+  ||
+  |#
+  (define (Effect effect)
+    (match effect
+      [(nop) '(nop)]
+      [(begin ,[Effect -> ef*] ... ,[ef]) (make-begin `(,ef* ... ,ef))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(let ([,uv* ,[Value -> vl*]] ...) ,[ef]) `(let ([,uv* ,vl*] ...) ,ef)]
+      [(mset! ,[Value -> base] ,[Value -> offset] ,[Value -> vl]) `(mset! ,base ,offset ,vl)]
+      [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ,rand* ...)]
+      [,else (invalid who 'Effect else)]
+      ))
 
-    #|
-    ||
-    |#
-    (define (Pred p)
-      (match p
-        [(true) '(true)]
-        [(false) '(false)]
-        [(begin ,[Effect -> e*] ... ,[p^]) (make-begin `(,e* ... ,p^))]
-        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,relop ,[Triv -> t] ,[Triv -> t^]) (guard (relop? relop)) `(,relop ,t ,t^)]
-        [,else (invalid who 'Pred else)]
-        ))
+  #|
+  ||
+  |#
+  (define (Pred pred)
+    (match pred
+      [(true) '(true)]
+      [(false) '(false)]
+      [(begin ,[Effect -> ef*] ... ,[pr]) (make-begin `(,ef* ... ,pr))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(let ([,uv* ,[Value -> vl*]] ...) ,[pr]) `(let ([,uv* ,vl*] ...) ,pr)]
+      [(,relop ,[Value -> vl] ,[Value -> vl^]) (guard (relop? relop)) `(,relop ,vl ,vl^)]
+      [,else (invalid who 'Pred else)]
+      ))
 
-    #|
-    ||
-    |#
-    (define (Tail t)
-      (match t
-        [(begin ,[Effect -> e*] ... ,[t^]) (make-begin `(,e* ... ,t^))]
-        [(if ,[Pred -> p] ,[c] ,[a]) `(if ,p ,c ,a)]
-        [(,binop ,[Triv -> t^] ,[Triv -> t&]) (guard (binop? binop)) `(,binop ,t^ ,t&)]
-        [(,[Triv -> t^] ,[Triv -> t*] ...) `(,t^ ,t* ...)]
-        [,t^ (guard (triv? t^)) t^]
-        [,else (invalid who 'Tail else)]
-        ))
+  #|
+  ||
+  |#
+  (define (Tail tail)
+    (match tail
+      [(alloc ,[Value -> vl]) `(alloc ,vl)]
+      [(begin ,[Effect -> ef*] ... ,[tl^]) (make-begin `(,ef* ... ,tl^))]
+      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(let ([,uv* ,[Value -> vl*]] ...) ,[tl]) `(let ([,uv* ,vl*] ...) ,tl)]
+      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,binop ,vl ,vl^)]
+      [,tr (guard (triv? tr)) tr]
+      [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ,rand* ...)]
+      [,else (invalid who 'Tail else)]
+      ))
 
-    #|
-    ||
-    |#
-    (define (Body b)
-      (match b
-        [(locals (,uvar* ...) ,[Tail -> t]) `(locals (,uvar* ...) ,t)]
-        [,else (invalid who 'Body else)]
-        ))
+  #|
+  ||
+  |#
+  (define (Program p)
+    (match p
+      [(letrec ([,label (lambda (,uvar* ...) ,[Tail -> tl*])] ...) ,[Tail -> tl])
+       `(letrec ([,label (lambda (,uvar* ...) ,tl*)] ...) ,tl)]
+      [,else (invalid who 'Program else)]
+      ))
 
-    #|
-    ||
-    |#
-    (define (Program p)
-      (match p
-        [(letrec ([,label (lambda (,uvar* ...) ,[Body -> b*])] ...) ,[Body -> b])
-         `(letrec ([,label (lambda (,uvar* ...) ,b*)] ...) ,b)]
-        [,else (invalid who 'Program else)]
-        ))
+  (Program program)
 
-    (Program program)
-
-    )) ;; end library
+)) ;; end library
