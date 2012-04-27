@@ -90,10 +90,10 @@
       [(begin ,[Effect -> ef*] ... ,[vl]) (make-begin `(,ef* ... ,vl))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[vl*]] ...) ,[vl]) `(let ([,uv* ,vl*] ...) ,vl)]
-      [(,vl-prim ,[vl*] ...) (guard value-prim?) `(,vl-prim ,vl* ...)]
+      [(,vl-prim ,[vl*] ...) (guard (value-prim? vl-prim) `(,vl-prim ,vl* ...)]
       [(,[rator] ,[rand*] ...) `(,rator ,rand* ...)]
-      [,uv (guard uvar?) uv]
-      [,lbl (guard label?) lbl]
+      [,uv (guard (uvar? uv)) uv]
+      [,lbl (guard (label? lbl)) lbl]
       [,else (invalid who 'Value else)]
       ))
 
