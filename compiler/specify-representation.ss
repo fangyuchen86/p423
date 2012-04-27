@@ -34,10 +34,13 @@
   #|
   ||
   |#
-  (define (Triv triv)
-    (match triv
-      [,tr (guard (triv? tr)) tr]
-      [,else (invalid who 'Triv else)]
+  (define (Immediate immediate)
+    (match immediate
+      [() '()]
+      [#t #t]
+      [#f #f]
+      [,fixnum (guard (fixnum? fixnum)) fixnum]
+      [,else (invalid who 'Immediate else)]
       ))
 
   #|
@@ -49,7 +52,7 @@
       [(begin ,[Effect -> ef*] ... ,[ef]) (make-begin `(,ef* ... ,ef))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[ef]) `(let ([,uv* ,vl*] ...) ,ef)]
-      [(mset! ,[Value -> base] ,[Value -> offset] ,[Value -> vl]) `(mset! ,base ,offset ,vl)]
+      [(,ef-prim ,[Value -> vl*] ...) (guard (effect-prim? ef-prim)) `(,ef-prim ,vl* ...)]
       [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ,rand* ...)]
       [,else (invalid who 'Effect else)]
       ))
@@ -62,26 +65,12 @@
       [(true) '(true)]
       [(false) '(false)]
       [(begin ,[Effect -> ef*] ... ,[pr]) (make-begin `(,ef* ... ,pr))]
-      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(if ,[pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[pr]) `(let ([,uv* ,vl*] ...) ,pr)]
-      [(,relop ,[Value -> vl] ,[Value -> vl^]) (guard (relop? relop)) `(,relop ,vl ,vl^)]
+      [(,pr-prim ,[Value -> vl*] ...) (guard (pred-prim? pr-prim)) `(,pr-prim ,vl)]
       [,else (invalid who 'Pred else)]
       ))
 
-  #|
-  ||
-  |#
-  (define (Tail tail)
-    (match tail
-      [(alloc ,[Value -> vl]) `(alloc ,vl)]
-      [(begin ,[Effect -> ef*] ... ,[tl^]) (make-begin `(,ef* ... ,tl^))]
-      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
-      [(let ([,uv* ,[Value -> vl*]] ...) ,[tl]) `(let ([,uv* ,vl*] ...) ,tl)]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,binop ,vl ,vl^)]
-      [,tr (guard (triv? tr)) tr]
-      [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ,rand* ...)]
-      [,else (invalid who 'Tail else)]
-      ))
   #|
   ||
   |#
@@ -90,6 +79,7 @@
       [(begin ,[Effect -> ef*] ... ,[vl]) (make-begin `(,ef* ... ,vl))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[vl*]] ...) ,[vl]) `(let ([,uv* ,vl*] ...) ,vl)]
+      [(quote ,[Immediate -> im]) `(quote ,im)]
       [(,vl-prim ,[vl*] ...) (guard (value-prim? vl-prim) `(,vl-prim ,vl* ...)]
       [(,[rator] ,[rand*] ...) `(,rator ,rand* ...)]
       [,uv (guard (uvar? uv)) uv]
