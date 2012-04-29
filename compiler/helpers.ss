@@ -11,6 +11,7 @@
 #!chezscheme
 (library (compiler helpers)
   (export
+   prim?
    effect-prims
    effect-prim?
    pred-prims
@@ -70,7 +71,11 @@
 (define (effect-prim? expr)
   (and #t (memq expr effect-prims)))
 
-
+#| prim? : expr --> boolean
+|| Determines if the given expression is a primitive.
+|#
+(define (prim? expr)
+  (or (value-prim? expr) (effect-prim? expr) (pred-prim? expr)))
 
 #| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
 ||

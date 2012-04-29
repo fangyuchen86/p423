@@ -11,6 +11,8 @@
   (export p423-compile p423-step
           ;; My passes:
           verify-scheme              ;; a9
+          lift-letrec                ;; a11
+          normalize-context          ;; a11
           specify-representation     ;; a10
           uncover-locals             ;; a9
           remove-let                 ;; a9
@@ -31,6 +33,7 @@
           expose-frame-var           ;; a4
           expose-memory-operands     ;; a8
           expose-basic-blocks        ;; a3
+          ;; optimize-jumps             ;; a11
           flatten-program            ;; a2
           generate-x86-64            ;; a1
           )
@@ -44,6 +47,8 @@
     (framework helpers)
     ;; My passes:
     (compiler verify-scheme)              ;; a9
+    (compiler lift-letrec)                ;; a11
+    (compiler normalize-context)          ;; a11
     (compiler specify-representation)     ;; a10
     (compiler uncover-locals)             ;; a9
     (compiler remove-let)                 ;; a9
@@ -66,6 +71,7 @@
     (compiler expose-frame-var)           ;; a4
     (compiler expose-memory-operands)     ;; a8
     (compiler expose-basic-blocks)        ;; a3
+    ;; (compiler optimize-jumps)             ;; a11
     (compiler flatten-program)            ;; a2
     (compiler generate-x86-64)            ;; a1
     )
@@ -82,6 +88,9 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
+  (lift-letrec)
+  (normalize-context)
+#|
   (specify-representation)
   (uncover-locals)
   (remove-let)
@@ -106,8 +115,10 @@
   (expose-frame-var)
   (expose-memory-operands)
   (expose-basic-blocks)
+  ;;(optimize-jumps)
   (flatten-program)
   (generate-x86-64 assemble)
+|#
   )
 
 ;; See the drivers.ss file for other options when defining a compiler
