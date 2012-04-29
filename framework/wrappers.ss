@@ -253,6 +253,9 @@
     pass->wrapper
     source/wrapper
     verify-scheme/wrapper
+    lift-letrec/wrapper
+    normalize-context/wrapper
+    optimize-jumps/wrapper
     specify-representation/wrapper
     uncover-locals/wrapper
     remove-let/wrapper
@@ -291,6 +294,8 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((lift-letrec) lift-letrec/wrapper)
+      ((normalize-context) normalize-context/wrapper)
       ((specify-representation) specify-representation/wrapper)
       ((uncover-locals) uncover-locals/wrapper)
       ((remove-let) remove-let/wrapper)
@@ -312,6 +317,7 @@
       ((expose-frame-var) expose-frame-var/wrapper)
       ((expose-memory-operands) expose-memory-operands/wrapper)
       ((expose-basic-blocks) expose-basic-blocks/wrapper)
+      ((optimize-jumps) optimize-jumps/wrapper)
       ((flatten-program) flatten-program/wrapper)
       ((generate-x86-64) generate-x86-64/wrapper)
       (else (errorf 'pass->wrapper
@@ -320,16 +326,28 @@
 ;;-----------------------------------
 ;; source/wrapper
 ;; verify-scheme/wrapper
+;; lift-letrec/wrapper
 ;;-----------------------------------
 (define-language-wrapper
-  (source/wrapper verify-scheme/wrapper)
+  (source/wrapper verify-scheme/wrapper lift-letrec/wrapper)
   (x)
   (environment env)
-  ,alloc
+  (import
+    (only (framework wrappers aux) * + -)
+    (except (chezscheme) * + -))
+  (reset-machine-state!)
+  ,x)
+
+;;-----------------------------------
+;; normalize-context/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  normalize-context/wrapper
+  (x)
+  (environment env)
   (import
     (only (framework wrappers aux)
-      handle-overflow true false nop
-      * + -)
+      true false nop * + -)
     (except (chezscheme) * + -))
   (reset-machine-state!)
   ,x)
@@ -572,7 +590,9 @@
 ;;-----------------------------------
 ;; expose-basic-blocks/wrapper
 ;;-----------------------------------
-(define-language-wrapper expose-basic-blocks/wrapper (x)
+(define-language-wrapper
+  (expose-basic-blocks/wrapper optimize-jumps/wrapper)
+  (x)
   (environment env)
   ,set!
   (import
