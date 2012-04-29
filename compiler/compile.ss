@@ -11,6 +11,7 @@
   (export p423-compile p423-step
           ;; My passes:
           verify-scheme              ;; a9
+          specify-representation     ;; a10
           uncover-locals             ;; a9
           remove-let                 ;; a9
           verify-uil                 ;; a1
@@ -43,6 +44,7 @@
     (framework helpers)
     ;; My passes:
     (compiler verify-scheme)              ;; a9
+    (compiler specify-representation)     ;; a10
     (compiler uncover-locals)             ;; a9
     (compiler remove-let)                 ;; a9
     (compiler verify-uil)                 ;; a1
@@ -80,6 +82,7 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
+  (specify-representation)
   (uncover-locals)
   (remove-let)
   (verify-uil)

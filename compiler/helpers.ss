@@ -11,6 +11,12 @@
 #!chezscheme
 (library (compiler helpers)
   (export
+   effect-prims
+   effect-prim?
+   pred-prims
+   pred-prim?
+   value-prims
+   value-prim?
    binop?
    loc?
    relop?
