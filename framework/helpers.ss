@@ -213,6 +213,7 @@
 #!chezscheme
 (library (framework helpers)
   (export
+    ptr->datum
     define-frame-variables
     $true $nil $void fixnum-range?
     mask-pair tag-pair size-pair disp-car disp-cdr mask-vector
@@ -229,6 +230,7 @@
     label->x86-64-label 
     make-disp-opnd
     disp-opnd disp-opnd? disp-opnd-reg disp-opnd-offset
+    make-index-opnd
     index-opnd index-opnd? index-opnd-breg index-opnd-ireg
     unique-name unique-name-count extract-suffix unique-label
     extract-root
@@ -246,7 +248,8 @@
     parameter-registers frame-pointer-register
     return-value-register return-address-register 
     allocation-pointer-register
-    define-who trace-define-who)
+    define-who trace-define-who
+    fp-offset check-heap-overflow)
   
   (import
     (chezscheme)
@@ -284,7 +287,7 @@
 ;;; machine state
 ; (module (word-shift word-size registers register?
 ;          rax rcx rdx rbx rbp rsi rdi r8 r9 r10 r11 r12 r13 r14 r15
-;          heap-size stack-size $check-heap-overflow mref mset!
+;          heap-size stack-size check-heap-overflow mref mset!
 ; 	 reset-machine-state!  parameter-registers
 ; 	 frame-pointer-register return-value-register
 ; 	 return-address-register allocation-pointer-register)
@@ -359,7 +362,7 @@
           (set! the-stack (make-vector n)))
         n)))
 
-  (define $check-heap-overflow
+  (define check-heap-overflow
     (lambda (ap)
       (when (> (fxsrl (- ap heap-offset) word-shift) (vector-length the-heap))
         (error 'alloc "heap overflow"))))
@@ -559,7 +562,7 @@
 
 ;;; frame variables
 
-(define $fp-offset 0)
+(define fp-offset (make-parameter 0))
 
 (define-syntax (define-frame-variables x)
   (syntax-case x ()
@@ -599,10 +602,10 @@
                  (datum->syntax k frame-pointer-register))
                (syntax-case x (set id)
                  [(k id)
-                  #`(mref (- #,(fp #'k) $fp-offset)
+                  #`(mref (- #,(fp #'k) (fp-offset))
                           #,(fxsll index word-shift))]
                  [(k set exp)
-                  #`(mset! (- #,(fp #'k) $fp-offset)
+                  #`(mset! (- #,(fp #'k) (fp-offset))
                            #,(fxsll index word-shift)
                            exp)]))
              (define-syntax fvi
@@ -647,7 +650,7 @@
 (define frame-var->index
   (lambda (fv)
     (unless (frame-var? fv)
-      (errorf 'frame-var->index "~s is not a frame-var" ~s))
+      (errorf 'frame-var->index "~s is not a frame-var" fv))
     (getprop fv 'frame-index)))
 
 ; (define index->frame-var 
@@ -737,7 +740,7 @@
 ;;; of a unique name or label.  It returns #f if passed something other
 ;;; than a unique name or label.
 ; (module (unique-name unique-name-count extract-suffix unique-label)
-  (define count 0)
+  (define count 1000)
   (define unique-suffix
     (lambda ()
       (set! count (+ count 1))
@@ -957,6 +960,36 @@
     (<= (- (expt 2 (- fixnum-bits 1)))
         n
         (- (expt 2 (- fixnum-bits 1)) 1))))
+
+(define ptr->datum
+  (lambda (ptr)
+    (define istype?
+      (lambda (mask tag x)
+        (= (logand x mask) tag)))
+    (define tagref
+      (lambda (tag disp p)
+        (mref p (- disp tag))))
+    (let f ([ptr ptr])
+      (cond
+        [(eqv? ptr $false) #f]
+        [(eqv? ptr $true) #t]
+        [(eqv? ptr $nil) '()]
+        [(eqv? ptr $void) (void)]
+        [(istype? mask-fixnum tag-fixnum ptr)
+         (ash ptr (- shift-fixnum))]
+        [(istype? mask-pair tag-pair ptr)
+         (cons (f (tagref tag-pair disp-car ptr))
+           (f (tagref tag-pair disp-cdr ptr)))]
+        [(istype? mask-vector tag-vector ptr)
+         (let ([n (f (tagref tag-vector disp-vector-length ptr))])
+           (let ([v (make-vector n)])
+             (do ([i 0 (+ i 1)])
+                 ((= i n) v)
+               (vector-set! v i
+                 (f (tagref tag-vector
+                      (+ disp-vector-data (fxsll i word-shift))
+                      ptr))))))]
+        [else (errorf 'ptr->datum "can't handle ~s" ptr)]))))
 
 (reset-machine-state!)
 

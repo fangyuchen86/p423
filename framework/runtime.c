@@ -178,7 +178,7 @@ static void usage_error(char *who) {
   exit(1);
 }
 
-/* #define SCHEME_PRINTER*/
+#define SCHEME_PRINTER
 
 #ifdef SCHEME_PRINTER
 

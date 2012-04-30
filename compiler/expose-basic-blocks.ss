@@ -2,6 +2,7 @@
 ;;
 ;; part of p423-sp12/srwaggon-p423 assign3
 ;; http://github.iu.edu/p423-sp12/srwaggon-p423
+;; introduced in a3
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
@@ -91,6 +92,13 @@
     (match effect
       [(nop) (expose-effect* effect* acc)]
       [(set! . ,x) (expose-effect* effect* `((set! . ,x) ,acc ...))]
+      [(return-point ,label ,tl)
+       (let*-values ([(texpr tbinds) (expose-tail tl)]
+                     [(eexpr ebinds) (expose-effect* effect* `(,texpr))])
+         (values eexpr
+                 `(,ebinds ...
+                   [,label (lambda () ,(make-begin acc))])
+                 ))]
       [(if ,pred ,conseq ,altern)
        (let ([clbl (unique-label 'c)]
              [albl (unique-label 'a)]

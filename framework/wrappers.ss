@@ -1,46 +1,83 @@
 (library (framework wrappers aux)
   (export
+    env
+    alloc
     handle-overflow
     set!
     rewrite-opnds
     code
     jump
+    (rename (p423-letrec letrec))
     locals
     locate
     ulocals
     spills
-    (rename (lambda-p423 lambda))
     register-conflict
     true
     false
     nop
-    frame-conflict)
+    frame-conflict
+    compute-frame-size
+    call-live
+    return-point-complex
+    return-point-simple
+    new-frames
+    (rename (p423-* *))
+    (rename (p423-+ +))
+    (rename (p423-- -)))
   (import
-    (except (chezscheme) set!)
+    (except (chezscheme) set! letrec)
     (framework match)
     (framework helpers))
 
+(define env
+  (environment
+    '(chezscheme)
+    '(framework helpers)
+    '(framework helpers frame-variables)))
+
+(define-syntax wrap
+  (syntax-rules ()
+    ((_ (define-syntax name body))
+     (define name `(define-syntax name body)))
+    ((_ (define name body))
+     (define name `(define name body)))))
+
+(wrap
+  (define alloc
+    (lambda (nbytes)
+      (unless (fxzero? (fxremainder nbytes word-size))
+        (error 'alloc "~s is not a multiple of word size" nbytes))
+      (let ([addr ,allocation-pointer-register])
+        (set! ,allocation-pointer-register (+ addr nbytes))
+        (check-heap-overflow ,allocation-pointer-register)
+        addr))))
+
 (define int64-in-range?
-  (lambda (x)
-    (<= (- (expt 2 63)) x (- (expt 2 63) 1))))
+  (let ()
+    (import scheme)
+    (lambda (x)
+      (<= (- (expt 2 63)) x (- (expt 2 63) 1)))))
 
 (define handle-overflow
-  (lambda (x)
-    (cond
-      [(not (number? x)) x]
-      [(int64-in-range? x) x]
-      [(not (= x (logand 18446744073709551615 x)))
-       (handle-overflow (logand 18446744073709551615 x))]
-      [(< x 0) (handle-overflow (+ x (expt 2 64)))]
-      [else (handle-overflow (- x (expt 2 64)))])))
+  (let ()
+    (import scheme)
+    (lambda (x)
+      (cond
+        [(not (number? x)) x]
+        [(int64-in-range? x) x]
+        [(not (= x (logand 18446744073709551615 x)))
+         (handle-overflow (logand 18446744073709551615 x))]
+        [(< x 0) (handle-overflow (+ x (expt 2 64)))]
+        [else (handle-overflow (- x (expt 2 64)))]))))
 
 (define rewrite-opnds
   (lambda (x)
     (match x
       [,r (guard (disp-opnd? r))
-       `(mref ,(disp-opnd-reg r) ,(disp-opnd-offset r))]
+        `(mref ,(disp-opnd-reg r) ,(disp-opnd-offset r))]
       [,r (guard (index-opnd? r))
-       `(mref ,(index-opnd-breg r) ,(index-opnd-ireg r))]
+        `(mref ,(index-opnd-breg r) ,(index-opnd-ireg r))]
       [(set! ,r ,[expr]) (guard (disp-opnd? r))
        `(mset! ,(disp-opnd-reg r) ,(disp-opnd-offset r) ,expr)]
       [(set! ,r ,[expr]) (guard (index-opnd? r))
@@ -48,12 +85,23 @@
       [(,[expr] ...) expr]
       [,x x])))
 
-(define-syntax set!
-  (let ()
-    (import (chezscheme))
-    (syntax-rules ()
-      [(_ x expr)
-       (set! x (handle-overflow expr))])))
+(define compute-frame-size
+  (lambda (x)
+    (match x
+      [(,[fs*] ...) (apply max 0 fs*)]
+      [,x (if (frame-var? x) (+ (frame-var->index x) 1) 0)])))
+
+(wrap
+  (define-syntax set!
+    (let ()
+      (import scheme)
+      (syntax-rules (,frame-pointer-register)
+        [(_ ,frame-pointer-register (op xxx n))
+         (begin
+           (fp-offset (op (fp-offset) n))
+           (set! ,frame-pointer-register (op xxx n)))]
+        [(_ x expr)
+         (set! x (handle-overflow expr))]))))
 
 (define-syntax code
   (lambda (x)
@@ -96,13 +144,6 @@
   (syntax-rules ()
     [(_ (x* ...) body) (let ([x* 0] ...) body)]))
 
-(define-syntax lambda-p423
-    (let ()
-      (import scheme)
-      (syntax-rules ()
-        [(lambda () body) (lambda arg-list body)]
-        [(lambda arg-list e e* ...) (lambda arg-list e e* ...)])))
-
 (define-syntax frame-conflict
   (syntax-rules ()
     [(_ ct body) body]))
@@ -122,6 +163,83 @@
                            (set! loc* (handle-overflow e))))] ...)
          body)])))
 
+(define-syntax p423-letrec
+  (let ()
+    (import scheme)
+    (syntax-rules (lambda)
+      [(_ ([lab (lambda () lambda-body)] ...) letrec-body)
+       (letrec ([lab (lambda ignore (parameterize ([fp-offset 0]) lambda-body))] ...)
+         (parameterize ([fp-offset 0]) letrec-body))])))
+
+(define return-point-complex
+  `(define-syntax return-point
+     (lambda (x)
+       (import scheme)
+       (syntax-case x ()
+         [(id rplab expr)
+          #'(let ([top (fxsll frame-size word-shift)]
+                  [rplab (lambda args (void))])
+              (parameterize ([fp-offset (+ (fp-offset) top)])
+                (set! ,frame-pointer-register
+                  (+ ,frame-pointer-register top))
+                expr
+                (set! ,frame-pointer-register
+                  (- ,frame-pointer-register top))))]))))
+
+(define return-point-simple
+  `(define-syntax return-point
+     (syntax-rules ()
+       ((_ lab expr)
+        (let ([lab (lambda args (void))]) expr)))))
+
+(wrap
+  (define-syntax new-frames
+    (lambda (x)
+      (import scheme)
+      (syntax-case x (return-point)
+        [(id ((nfv ...) ...) expr)
+         (with-syntax ([((i ...) ...) (map enumerate #'((nfv ...) ...))])
+           #'(let ([top (fxsll frame-size word-shift)])
+               (define-syntax nfv
+                 (identifier-syntax
+                   [id (mref (- ,frame-pointer-register (fp-offset))
+                         (fxsll (+ i frame-size) word-shift))]
+                   [(set! id e) 
+                    (mset! (- ,frame-pointer-register (fp-offset))
+                      (fxsll (+ i frame-size) word-shift)
+                      e)]))
+               ...
+               ...
+               expr))]))))
+
+(define-syntax call-live
+  (syntax-rules ()
+    [(_ (x* ...) body) body]))
+
+(define-who p423-*
+  (lambda (x y)
+    (import scheme)
+    (let ([ans (* x y)])
+      (unless (fixnum-range? ans)
+        (errorf who "result ~s is outside of fixnum range" ans))
+      ans)))
+
+(define-who p423-+
+  (lambda (x y)
+    (import scheme)
+    (let ([ans (+ x y)])
+      (unless (fixnum-range? ans)
+        (errorf who "result ~s is outside of fixnum range" ans))
+      ans)))
+
+(define-who p423--
+  (lambda (x y)
+    (import scheme)
+    (let ([ans (- x y)])
+      (unless (fixnum-range? ans)
+        (errorf who "result ~s is outside of fixnum range" ans))
+      ans)))
+
 (define (true) #t)
 
 (define (false) #f)
@@ -135,48 +253,71 @@
     pass->wrapper
     source/wrapper
     verify-scheme/wrapper
+    lift-letrec/wrapper
+    normalize-context/wrapper
+    optimize-jumps/wrapper
+    specify-representation/wrapper
+    uncover-locals/wrapper
+    remove-let/wrapper
+    verify-uil/wrapper
+    remove-complex-opera*/wrapper
+    flatten-set!/wrapper
+    impose-calling-conventions/wrapper
+    expose-allocation-pointer/wrapper
     uncover-frame-conflict/wrapper
-    introduce-allocation-forms/wrapper
+    pre-assign-frame/wrapper
+    assign-new-frame/wrapper
+    finalize-frame-locations/wrapper
     select-instructions/wrapper
     uncover-register-conflict/wrapper
     assign-registers/wrapper
     assign-frame/wrapper
-    finalize-frame-locations/wrapper
     discard-call-live/wrapper
     finalize-locations/wrapper
     expose-frame-var/wrapper
+    expose-memory-operands/wrapper
     expose-basic-blocks/wrapper
     flatten-program/wrapper
     generate-x86-64/wrapper)
   (import
-    (chezscheme)
+    (except (chezscheme) set!)
     (framework match)
     (framework helpers)
     (framework driver)
-    (only (framework wrappers aux) rewrite-opnds))
-
-(define env
-  (environment
-    '(except (chezscheme) set! lambda)
-    '(framework helpers)
-    '(framework helpers frame-variables)))
+    (only (framework wrappers aux)
+      env rewrite-opnds compute-frame-size
+      return-point-complex return-point-simple
+      new-frames set! alloc))
 
 (define pass->wrapper
   (lambda (pass)
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((lift-letrec) lift-letrec/wrapper)
+      ((normalize-context) normalize-context/wrapper)
+      ((specify-representation) specify-representation/wrapper)
+      ((uncover-locals) uncover-locals/wrapper)
+      ((remove-let) remove-let/wrapper)
+      ((verify-uil) verify-uil/wrapper)
+      ((remove-complex-opera*) remove-complex-opera*/wrapper)
+      ((flatten-set!) flatten-set!/wrapper)
+      ((impose-calling-conventions) impose-calling-conventions/wrapper)
+      ((expose-allocation-pointer) expose-allocation-pointer/wrapper)
       ((uncover-frame-conflict) uncover-frame-conflict/wrapper)
-      ((introduce-allocation-forms) introduce-allocation-forms/wrapper)
+      ((pre-assign-frame) pre-assign-frame/wrapper)
+      ((assign-new-frame) assign-new-frame/wrapper)
+      ((finalize-frame-locations) finalize-frame-locations/wrapper)
       ((select-instructions) select-instructions/wrapper)
       ((uncover-register-conflict) uncover-register-conflict/wrapper)
       ((assign-registers) assign-registers/wrapper)
       ((assign-frame) assign-frame/wrapper)
-      ((finalize-frame-locations) finalize-frame-locations/wrapper)
       ((discard-call-live) discard-call-live/wrapper)
       ((finalize-locations) finalize-locations/wrapper)
       ((expose-frame-var) expose-frame-var/wrapper)
+      ((expose-memory-operands) expose-memory-operands/wrapper)
       ((expose-basic-blocks) expose-basic-blocks/wrapper)
+      ((optimize-jumps) optimize-jumps/wrapper)
       ((flatten-program) flatten-program/wrapper)
       ((generate-x86-64) generate-x86-64/wrapper)
       (else (errorf 'pass->wrapper
@@ -185,16 +326,111 @@
 ;;-----------------------------------
 ;; source/wrapper
 ;; verify-scheme/wrapper
+;; lift-letrec/wrapper
 ;;-----------------------------------
-(define-language-wrapper (source/wrapper verify-scheme/wrapper)
+(define-language-wrapper
+  (source/wrapper verify-scheme/wrapper lift-letrec/wrapper)
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux) * + -)
+    (except (chezscheme) * + -))
+  (reset-machine-state!)
+  ,x)
+
+;;-----------------------------------
+;; normalize-context/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  normalize-context/wrapper
   (x)
   (environment env)
   (import
     (only (framework wrappers aux)
-      set! handle-overflow locals lambda true false nop))
+      true false nop * + -)
+    (except (chezscheme) * + -))
   (reset-machine-state!)
+  ,x)
+
+;;-----------------------------------
+;; specify-representation
+;;-----------------------------------
+(define-language-wrapper
+  specify-representation/wrapper
+  (x)
+  (environment env)
+  ,alloc
+  (import
+    (only (framework wrappers aux)
+      handle-overflow true false nop))
+  (ptr->datum ,x))
+
+;;-----------------------------------
+;; uncover-locals/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  uncover-locals/wrapper
+  (x)
+  (environment env)
+  ,alloc
+  (import
+    (only (framework wrappers aux)
+      handle-overflow locals true false nop)
+    (except (chezscheme) set!))
+  (ptr->datum ,x))
+
+;;-----------------------------------
+;; verify-uil/wrapper
+;; remove-let/wrapper
+;; remove-complex-opera*/wrapper
+;; flatten-set!/wrapper
+;;-----------------------------------
+(define-language-wrapper
+  (verify-uil/wrapper remove-let/wrapper
+   remove-complex-opera*/wrapper flatten-set!/wrapper)
+  (x)
+  (environment env)
+  ,set! ,alloc
+  (import
+    (only (framework wrappers aux)
+      handle-overflow locals true false nop)
+    (except (chezscheme) set! lambda))
+  (ptr->datum ,x))
+
+;;-----------------------------------
+;; impose-calling-conventions/wrapper
+;;-----------------------------------
+(define-language-wrapper impose-calling-conventions/wrapper
+  (x)
+  (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-complex
+  ,new-frames
+  ,alloc
+  ,set!
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec locals true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
+
+;;-----------------------------------
+;; expose-allocation-pointer/wrapper
+;;-----------------------------------
+(define-language-wrapper expose-allocation-pointer/wrapper
+  (x)
+  (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-complex
+  ,new-frames
+  ,set!
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec locals true false nop)
+    (except (chezscheme) set! letrec))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; uncover-frame-conflict/wrapper
@@ -202,125 +438,187 @@
 (define-language-wrapper uncover-frame-conflict/wrapper
   (x)
   (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-complex
+  ,new-frames
+  ,set!
   (import
     (only (framework wrappers aux)
-      set! handle-overflow locals lambda true false nop frame-conflict))
+      handle-overflow letrec locals spills call-live
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
+
+;;----------------------------------
+;; pre-assign-frame
+;;----------------------------------
+(define-language-wrapper pre-assign-frame/wrapper (x)
+  (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-complex
+  ,new-frames
+  ,set!
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec locals locate call-live 
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
+  (call/cc (lambda (k) (set! ,return-address-register k) ,x))
+  (ptr->datum ,return-value-register))
+
+;;----------------------------------
+;; assign-new-frame
+;;----------------------------------
+(define-language-wrapper assign-new-frame/wrapper (x)
+  (environment env)
+  (define frame-size ,(compute-frame-size x))
+  ,return-point-simple
+  ,set!
+  (import
+    (only (framework wrappers aux)
+      handle-overflow letrec locals ulocals spills locate
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
+  (call/cc 
+    (lambda (k)
+      (set! ,return-address-register k)
+      ,x))
+  (ptr->datum ,return-value-register))
 
 
 ;;-----------------------------------
-;; introduce-allocation-forms/wrapper
 ;; finalize-frame-locations/wrapper
 ;; select-instructions/wrapper
 ;; assign-frame/wrapper
 ;;-----------------------------------
 (define-language-wrapper
-  (introduce-allocation-forms/wrapper
-   finalize-frame-locations/wrapper
+  (finalize-frame-locations/wrapper
    select-instructions/wrapper
    assign-frame/wrapper)
   (x)
   (environment env)
+  ,return-point-simple
+  ,set!
   (import
     (only (framework wrappers aux)
-      locals ulocals locate set! handle-overflow
-      lambda true false nop frame-conflict))
+      handle-overflow letrec locate
+      locals ulocals frame-conflict
+      true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; uncover-register-conflict/wrapper
 ;;-----------------------------------
 (define-language-wrapper uncover-register-conflict/wrapper (x) 
   (environment env)
+  ,set!
+  ,return-point-simple
   (import
     (only (framework wrappers aux)
-      handle-overflow set! locate locals ulocals
-      lambda register-conflict frame-conflict true false nop))
+      handle-overflow letrec locate locals ulocals frame-conflict
+      register-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; assign-registers/wrapper
 ;;-----------------------------------
 (define-language-wrapper assign-registers/wrapper (x)
   (environment env)
+  ,return-point-simple
+  ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow set! locate locals ulocals
-      spills frame-conflict lambda true false nop))
+      handle-overflow letrec locate locals ulocals spills
+      frame-conflict true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; discard-call-live/wrapper
 ;;-----------------------------------
 (define-language-wrapper discard-call-live/wrapper (x)
   (environment env)
+  ,return-point-simple
+  ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow set! locate true false nop)
-    (only (chezscheme) lambda))
+      handle-overflow letrec locate true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; finalize-locations/wrapper
 ;;-----------------------------------
 (define-language-wrapper finalize-locations/wrapper (x)
   (environment env)
+  ,return-point-simple
+  ,set!
   (import
     (only (framework wrappers aux)
-      handle-overflow set! true false nop)
-    (only (chezscheme) lambda))
+      handle-overflow letrec true false nop)
+    (except (chezscheme) set! letrec))
   (call/cc (lambda (k) (set! ,return-address-register k) ,x))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; expose-frame-var/wrapper
+;; expose-memory-operands/wrapper
 ;;-----------------------------------
-(define-language-wrapper expose-frame-var/wrapper (x)
+(define-language-wrapper
+  (expose-frame-var/wrapper expose-memory-operands/wrapper)
+  (x)
   (environment env)
+  ,return-point-simple
+  ,set!
   (import
     (only (framework wrappers aux)
-      set! handle-overflow true false nop)
-    (only (chezscheme) lambda))
+      handle-overflow true false nop)
+    (except (chezscheme) set!))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; expose-basic-blocks/wrapper
 ;;-----------------------------------
-(define-language-wrapper expose-basic-blocks/wrapper (x)
+(define-language-wrapper
+  (expose-basic-blocks/wrapper optimize-jumps/wrapper)
+  (x)
   (environment env)
+  ,set!
   (import
-    (only (framework wrappers aux)
-      handle-overflow set!)
-    (only (chezscheme) lambda))
+    (only (framework wrappers aux) handle-overflow)
+    (except (chezscheme) set!))
   (call/cc
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; flatten-program/wrapper
 ;;-----------------------------------
 (define-language-wrapper flatten-program/wrapper (x)
   (environment env)
+  ,set!
   (import
     (only (framework wrappers aux)
-      set! handle-overflow code jump)
-    (only (chezscheme) lambda))
+      handle-overflow code jump)
+    (except (chezscheme) set!))
   (call/cc 
     (lambda (k)
       (set! ,return-address-register k)
       ,(rewrite-opnds x)))
-  ,return-value-register)
+  (ptr->datum ,return-value-register))
 
 ;;-----------------------------------
 ;; generate-x86/wrapper
@@ -331,6 +629,6 @@
                   (format "exec '~a'" program)
                   (buffer-mode block)
                   (native-transcoder))])
-    (read in)))
+    (get-line in)))
 
 )
