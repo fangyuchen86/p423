@@ -24,9 +24,21 @@
     new-frames
     (rename (p423-* *))
     (rename (p423-+ +))
-    (rename (p423-- -)))
+    (rename (p423-- -))
+    free
+    bind-free
+    fill-closure!
+    closures
+    cookie
+    procedure
+    procedure?
+    make-procedure
+    procedure-code
+    procedure-env
+    procedure-set!
+    procedure-ref)
   (import
-    (except (chezscheme) set! letrec)
+    (except (chezscheme) set! procedure?)
     (framework match)
     (framework helpers))
 
@@ -240,12 +252,67 @@
         (errorf who "result ~s is outside of fixnum range" ans))
       ans)))
 
+(define-syntax free
+    (syntax-rules ()
+      [(_ (var ...) expr) expr]))
+
+
+(define-syntax bind-free
+  (lambda (x)
+    (syntax-case x ()
+      [(_ (cp fv ...) body)
+       (with-syntax ([(i ...) (enumerate #'(fv ...))])
+         #'(let ()
+             (define-syntax fv
+               (identifier-syntax
+                 (vector-ref (cp cookie) i)))
+             ...
+             body))])))
+
+(define fill-closure!
+  (lambda (cp . free)
+    (let ([env (cp cookie)])
+      (for-each
+        (lambda (i x) (vector-set! env i x))
+        (enumerate free)
+        free))))
+
+(define-syntax closures
+  (syntax-rules ()
+    [(_ ([name code free ...] ...) body)
+     (letrec ([name (let ([env (make-vector (length '(free ...)))])
+                           (lambda args
+                             (if (and (= (length args) 1)
+                                      (eq? (car args) cookie))
+                                 env
+                                 (apply code args))))]
+                   ...)
+       (fill-closure! name free ...)
+       ...
+       body)]))
+
+(define-record procedure ((immutable code) (immutable env)) ()
+    ([constructor $make-procedure]))
+
+(define make-procedure
+    (lambda (code i)
+      ($make-procedure code (make-vector i))))
+
+(define procedure-ref
+    (lambda (cp i)
+      (vector-ref (procedure-env cp) i)))
+
+(define procedure-set!
+    (lambda (cp i v)
+      (vector-set! (procedure-env cp) i v)))
+
 (define (true) #t)
 
 (define (false) #f)
 
 (define (nop) (void))
 
+(define cookie (cons "snicker" "doodle"))
 )
 
 (library (framework wrappers)
@@ -253,6 +320,9 @@
     pass->wrapper
     source/wrapper
     verify-scheme/wrapper
+    uncover-free/wrapper
+    convert-closures/wrapper
+    introduce-procedure-primitives/wrapper
     lift-letrec/wrapper
     normalize-context/wrapper
     optimize-jumps/wrapper
@@ -294,6 +364,9 @@
     (case pass
       ((source) source/wrapper)
       ((verify-scheme) verify-scheme/wrapper)
+      ((uncover-free) uncover-free/wrapper)
+      ((convert-closures) convert-closures/wrapper)
+      ((introduce-procedure-primitives) introduce-procedure-primitives/wrapper)
       ((lift-letrec) lift-letrec/wrapper)
       ((normalize-context) normalize-context/wrapper)
       ((specify-representation) specify-representation/wrapper)
@@ -326,16 +399,54 @@
 ;;-----------------------------------
 ;; source/wrapper
 ;; verify-scheme/wrapper
-;; lift-letrec/wrapper
 ;;-----------------------------------
 (define-language-wrapper
-  (source/wrapper verify-scheme/wrapper lift-letrec/wrapper)
+  (source/wrapper verify-scheme/wrapper)
   (x)
   (environment env)
   (import
     (only (framework wrappers aux) * + -)
     (except (chezscheme) * + -))
   (reset-machine-state!)
+  ,x)
+
+
+;;-----------------------------------
+;; uncover-free/wrapper/wrapper
+;;-----------------------------------
+(define-language-wrapper uncover-free/wrapper
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux) * + - free)
+    (except (chezscheme) * + -))  
+  ,x)
+
+;;-----------------------------------
+;; convert-closures/wrapper
+;;-----------------------------------
+(define-language-wrapper convert-closures/wrapper
+  (x)
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      * + - cookie bind-free fill-closure! closures)
+    (except (chezscheme) * + -))
+  ,x)
+
+;;----------------------------------------
+;; introduce-procedure-primitives/wrapper
+;; lift-letrec/wrapper
+;;----------------------------------------
+(define-language-wrapper
+  (introduce-procedure-primitives/wrapper lift-letrec/wrapper)
+  (x) 
+  (environment env)
+  (import
+    (only (framework wrappers aux)
+      * + - procedure make-procedure procedure-ref
+      procedure-set! procedure-code procedure?)
+    (except (chezscheme) * + - procedure?))
   ,x)
 
 ;;-----------------------------------
@@ -347,13 +458,14 @@
   (environment env)
   (import
     (only (framework wrappers aux)
-      true false nop * + -)
-    (except (chezscheme) * + -))
-  (reset-machine-state!)
+      true false nop * + -
+      procedure make-procedure procedure-ref
+      procedure-set! procedure-code procedure?)
+    (except (chezscheme) * + - procedure?))
   ,x)
 
 ;;-----------------------------------
-;; specify-representation
+;; specify-representation/wrapper
 ;;-----------------------------------
 (define-language-wrapper
   specify-representation/wrapper
