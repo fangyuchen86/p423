@@ -90,7 +90,7 @@
   (verify-scheme)
   (lift-letrec)
   (normalize-context)
-#|
+
   (specify-representation)
   (uncover-locals)
   (remove-let)
@@ -115,6 +115,7 @@
   (expose-frame-var)
   (expose-memory-operands)
   (expose-basic-blocks)
+#|
   ;;(optimize-jumps)
   (flatten-program)
   (generate-x86-64 assemble)

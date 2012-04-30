@@ -20,7 +20,7 @@ all : env
 
 # Create the compiler environment
 env : $(ENV)
-	scheme $(ENV)
+	petite $(ENV)
 
 # Run custom tests on the compiler
 tests : $(TESTS)
