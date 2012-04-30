@@ -70,7 +70,7 @@
            (guard (binop? binop))
            `(set! ,(Triv uvar) (,binop ,t ,t^))]
           [(set! ,[Triv -> uvar] ,[Triv -> t])
-           (if (equal? uvar t) '(nop) `(set! ,(Triv uvar) ,t))]
+           (if (eq? uvar t) '(nop) `(set! ,(Triv uvar) ,t))]
           [,else (invalid who 'Effect else)]
           ))
 
