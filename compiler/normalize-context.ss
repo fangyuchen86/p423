@@ -22,19 +22,21 @@
    (compiler helpers)
    )
 
-#|
+#| normalize-context : program --> program
+|| The goal of normalize-context is to recognize the three distinct contexts below and to
+|| rewrite the code so that each kind of expression appears only in contexts that are
+|| appropriate for that expression.
 ||
+|| On input to this pass, any expression can appear in any of three contexts:
+||
+|| o effect, where the resulting value is not needed, e.g., all but the last
+||   subexpression of a begin;
+||
+|| o predicate, where the expression determines flow of control, e.g., the test part of an if;
+||
+|| o value, where the value is needed, e.g., the right-hand side of a let.
 |#
 (define-who (normalize-context program)
-
-  #|
-  ||
-  |#
-  (define (Triv triv)
-    (match triv
-      [,tr (guard (triv? tr)) tr]
-      [,else (invalid who 'Triv else)]
-      ))
 
   #|
   ||
@@ -82,25 +84,10 @@
   #|
   ||
   |#
-  (define (Tail tail)
-    (match tail
-      [(alloc ,[Value -> vl]) `(alloc ,vl)]
-      [(begin ,[Effect -> ef*] ... ,[tl^]) (make-begin `(,ef* ... ,tl^))]
-      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
-      [(let ([,uv* ,[Value -> vl*]] ...) ,[tl]) `(let ([,uv* ,vl*] ...) ,tl)]
-      [(,binop ,[Value -> vl] ,[Value -> vl^]) (guard (binop? binop)) `(,binop ,vl ,vl^)]
-      [,tr (guard (triv? tr)) tr]
-      [(,[Value -> rator] ,[Value -> rand*] ...) `(,rator ,rand* ...)]
-      [,else (invalid who 'Tail else)]
-      ))
-
-  #|
-  ||
-  |#
   (define (Program p)
     (match p
-      [(letrec ([,label (lambda (,uvar* ...) ,[Tail -> tl*])] ...) ,[Tail -> tl])
-       `(letrec ([,label (lambda (,uvar* ...) ,tl*)] ...) ,tl)]
+      [(letrec ([,label (lambda (,uvar* ...) ,[Value -> vl*])] ...) ,[Value -> vl])
+       `(letrec ([,label (lambda (,uvar* ...) ,vl*)] ...) ,vl)]
       [,else (invalid who 'Program else)]
       ))
 
