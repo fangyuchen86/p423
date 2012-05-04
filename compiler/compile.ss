@@ -12,6 +12,7 @@
           ;; My passes:
           verify-scheme              ;; a9
           uncover-free               ;; a12
+          convert-closures           ;; a12
           lift-letrec                ;; a11
           normalize-context          ;; a11
           specify-representation     ;; a10
@@ -49,6 +50,7 @@
     ;; My passes:
     (compiler verify-scheme)              ;; a9
     (compiler uncover-free)               ;; a12
+    (compiler convert-closures)           ;; a12
     (compiler lift-letrec)                ;; a11
     (compiler normalize-context)          ;; a11
     (compiler specify-representation)     ;; a10
@@ -91,6 +93,7 @@
 (define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
   (uncover-free)
+  (convert-closures)
   #|
   (lift-letrec)
   (normalize-context)

@@ -53,7 +53,7 @@
 #| The list of predicate primitives.
 |#
 (define pred-prims
-  '(< <= = >= > boolean? eq? fixnum? null? pair? vector?))
+  '(< <= = >= > boolean? eq? fixnum? null? pair? vector? procedure?))
 
 #| pred-prim? : expression --> boolean
 || Determines if the given expression is a Predicate primitive.
