@@ -80,7 +80,7 @@
 
 
 (define (immediate? im)
-  (or (fixnum? im) (null? im) (eq? im '#f) (eq? im '#t)))
+  (or (fixnum? im) (eq? im '()) (eq? im '#f) (eq? im '#t)))
 
 #| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
 ||
