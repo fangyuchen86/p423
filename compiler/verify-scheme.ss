@@ -14,22 +14,22 @@
 ;;; verify-scheme accept a single value and verifies that the value
 ;;; is a valid program in the current source language.
 ;;;
-;;; The grammar changes only slightly from Assignment 11 in that labels
-;;; no longer appear in the source language.  Also, the set of variables
-;;; visible within each lambda expression now includes those bound by
-;;; let, letrec, and lambda expressions enclosing the lambda expression.
+;;; The grammar changes only slightly from Assignment 12 in that lambda
+;;; expressions may now appear anywhere other expressions may appear.
 ;;;
-;;; Grammar for verify-scheme (assignment 12):
+;;; Grammar for verify-scheme (assignment 13):
 ;;;
 ;;;  Program --> <Expr>
-;;;  Expr   --> <uvar>
-;;;          |  (quote <Immediate>)
-;;;          |  (if <Expr> <Expr> <Expr>)
-;;;          |  (begin <Expr>* <Expr>)
-;;;          |  (let ([<uvar> <Expr>]*) <Expr>)
-;;;          |  (letrec ([<uvar> (lambda (<uvar>*) <Expr>)]*) <Expr>)
-;;;          |  (<primitive> <Expr>*)
-;;;          |  (<Expr> <Expr>*)
+;;;  Expr    --> <uvar>
+;;;           |  (quote <Immediate>)
+;;;           |  (if <Expr> <Expr> <Expr>)
+;;;           |  (begin <Expr>* <Expr>)
+;;;           |  <Lambda>
+;;;           |  (let ([<uvar> <Expr>]*) <Expr>)
+;;;           |  (letrec ([<uvar> <Lambda>]*) <Expr>)
+;;;           |  (<primitive> <Expr>*)
+;;;           |  (<Expr> <Expr>*)
+;;;  Lambda  --> (lambda (<uvar>*) <Expr>)
 ;;;  Immediate -> <fixnum> | () | #t | #f
 ;;;
 ;;; Where uvar is symbol.n, n >= 0
@@ -83,6 +83,9 @@
               [(quote ,[Immediate ->]) (values)]
               [(if ,[] ,[] ,[]) (values)]
               [(begin ,[] ... ,[]) (values)]
+              [(lambda (,fml* ...) ,x)
+               (set! all-uvar* (append fml* all-uvar*))
+               ((Expr (append fml* uvar*)) x)]
               [(let ([,new-uvar* ,[]] ...) ,x)
                (set! all-uvar* (append new-uvar* all-uvar*))
                ((Expr (append new-uvar* uvar*)) x)]
@@ -118,6 +121,7 @@
       ((Expr '()) x)
       (verify-x-list all-uvar* uvar? 'uvar)))
   (lambda (x) (Program x) x))
+
 
 )
 
