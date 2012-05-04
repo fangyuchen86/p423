@@ -11,6 +11,7 @@
   (export p423-compile p423-step
           ;; My passes:
           verify-scheme              ;; a9
+          uncover-free               ;; a12
           lift-letrec                ;; a11
           normalize-context          ;; a11
           specify-representation     ;; a10
@@ -47,6 +48,7 @@
     (framework helpers)
     ;; My passes:
     (compiler verify-scheme)              ;; a9
+    (compiler uncover-free)               ;; a12
     (compiler lift-letrec)                ;; a11
     (compiler normalize-context)          ;; a11
     (compiler specify-representation)     ;; a10
@@ -88,9 +90,10 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
+  (uncover-free)
+  #|
   (lift-letrec)
   (normalize-context)
-
   (specify-representation)
   (uncover-locals)
   (remove-let)
@@ -118,7 +121,7 @@
   (optimize-jumps)
   (flatten-program)
   (generate-x86-64 assemble)
-
+  |#
   )
 
 ;; See the drivers.ss file for other options when defining a compiler

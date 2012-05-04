@@ -18,6 +18,7 @@
    pred-prim?
    value-prims
    value-prim?
+   immediate?
    binop?
    loc?
    relop?
@@ -76,6 +77,10 @@
 |#
 (define (prim? expr)
   (or (value-prim? expr) (effect-prim? expr) (pred-prim? expr)))
+
+
+(define (immediate? im)
+  (or (fixnum? im) (null? im) (eq? im '#f) (eq? im '#t)))
 
 #| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
 ||
