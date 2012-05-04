@@ -5,7 +5,7 @@
 ;;
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
-;; 2012/2/15
+;; 2012/ 5 / 4
 
 (library (compiler compile)
   (export p423-compile p423-step
@@ -97,7 +97,6 @@
   (uncover-free)
   (convert-closures)
   (introduce-procedure-primitives)
-  #|
   (lift-letrec)
   (normalize-context)
   (specify-representation)
@@ -127,7 +126,6 @@
   (optimize-jumps)
   (flatten-program)
   (generate-x86-64 assemble)
-  |#
   )
 
 ;; See the drivers.ss file for other options when defining a compiler

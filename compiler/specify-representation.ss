@@ -91,6 +91,9 @@
                         (eval offset)
                         offset)
                    ,x))]
+        [(procedure-set! ,proc ,i ,ef)
+         (let ([offset `(+ (- ,disp-procedure-data ,tag-procedure) ,i)])
+           `(mset! ,proc ,(eval offset) ,ef))]
         [,else (invalid who 'Effect-primitive else)]
         ))
     (match effect
@@ -112,6 +115,7 @@
         [(,relop ,x ,y) (guard (relop? relop)) `(,relop ,x ,y)]
         [(null? ,x)    `(= ,x ,$nil)]
         [(eq? ,x ,y)   `(= ,x ,y)]
+        [(procedure? ,x) `(= (logand ,x ,mask-procedure) ,tag-procedure)]
         [(boolean? ,x) `(= (logand ,x ,mask-boolean) ,tag-boolean)]
         [(fixnum?  ,x) `(= (logand ,x ,mask-fixnum ) ,tag-fixnum )]
         [(pair?    ,x) `(= (logand ,x ,mask-pair   ) ,tag-pair   )]
@@ -153,6 +157,13 @@
                   (mset! ,ls ,(- disp-car tag-pair) ,avar)
                   (mset! ,ls ,(- disp-cdr tag-pair) ,dvar)
                   ,ls))))]
+        [(make-procedure ,lbl ,z)
+         (let* ([offset `(+ ,disp-procedure-data ,z)]
+                [v (unique-name 'v)])
+           `(let ([,v (+ (alloc ,(eval offset))
+                         ,tag-procedure)])
+              (begin (mset! ,v ,(- disp-procedure-code tag-procedure) ,lbl)
+                     ,v)))]
         [(make-vector ,e)
          (let* ([fixed (integer? e)]
                 [v (unique-name 'v)]
@@ -168,6 +179,11 @@
            (if fixed
                code
                `(let ([,len ,e]) ,code)))]
+        [(procedure-code ,pr)
+         `(mref ,pr ,(- disp-procedure-code tag-procedure))]
+        [(procedure-ref ,cp ,i)
+         (let ([offset (+ (- disp-procedure-data tag-procedure) i)])
+           `(mref ,cp ,offset))]
         [(vector-length ,v) `(mref ,v ,(- disp-vector-length tag-vector))]
         [(vector-ref ,v ,i)
          (let ([offset `(+ (- ,disp-vector-data ,tag-vector) ,i)])

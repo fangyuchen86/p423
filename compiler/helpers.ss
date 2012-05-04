@@ -42,7 +42,7 @@
 #| The list of Value primitives.
 |#
 (define value-prims
-  '(+ - * car cdr cons make-vector vector-length vector-ref void))
+  '(+ - * car cdr cons make-vector vector-length vector-ref void procedure-ref procedure-code make-procedure))
 
 #| value-prim? : expression --> boolean
 || Determines if the given expression is an Value primitive.
@@ -64,7 +64,7 @@
 #| The list of Effect primitives.
 |#
 (define effect-prims
-  '(set-car! set-cdr! vector-set!))
+  '(set-car! set-cdr! vector-set! procedure-set!))
 
 #| effect-prim? : expr --> boolean
 || Determines if the given expression is an Effect primitive.

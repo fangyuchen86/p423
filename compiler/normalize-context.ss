@@ -59,8 +59,8 @@
   (define (Value value)
     (define (handle-prim prim vl*)
       (match prim
-        [,ef-prim (guard (effect-prim? ef-prim)) (make-nopless-begin `((,prim ,vl* ...) (void)))] ;; nopless-begin
         [,pr-prim (guard (pred-prim?   pr-prim)) `(if (,prim ,vl* ...) '#t '#f)]
+        [,ef-prim (guard (effect-prim? ef-prim)) (make-nopless-begin `((,prim ,vl* ...) (void)))]
         [,vl-prim (guard (value-prim?  vl-prim)) `(,prim ,vl* ...)]
         [,else (invalid who 'Value-prim-context else)]
       ))
@@ -89,7 +89,7 @@
       [,lbl (guard (label? lbl))  `(nop)]
       [,uv  (guard (uvar? uv))    `(nop)]
       [(quote ,[Immediate -> im]) `(nop)]
-      [(begin ,[Effect -> ef*] ... ,[ef]) (make-nopless-begin `(,ef* ... ,ef))] ;; nopless-begin
+      [(begin ,[Effect -> ef*] ... ,[ef]) (make-nopless-begin `(,ef* ... ,ef))]
       [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[ef]) `(let ([,uv* ,vl*] ...) ,ef)]
       [(,prim ,[Value -> vl*] ...) (guard (prim? prim)) (handle-prim prim vl*)]
@@ -104,16 +104,16 @@
     (define (handle-prim prim vl*)
       (match prim
         [,pr-prim (guard (pred-prim?   pr-prim)) `(,prim ,vl* ...)]
-        [,ef-prim (guard (effect-prim? ef-prim)) (make-nopless-begin `((,prim ,vl* ...) (true)))] ;; ehhh.
+        [,ef-prim (guard (effect-prim? ef-prim)) (make-nopless-begin `((,prim ,vl* ...) (true)))]
         [,else `(if (eq? (,prim ,vl* ...) '#f) (false) (true))]
         ))
     (match pred
       [void `(nop)]
       [(begin ,[Effect -> ef*] ... ,[pr]) (make-begin `(,ef* ... ,pr))]
-      [(if ,[Pred -> pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
+      [(if ,[pr] ,[c] ,[a]) `(if ,pr ,c ,a)]
       [(let ([,uv* ,[Value -> vl*]] ...) ,[pr]) `(let ([,uv* ,vl*] ...) ,pr)]
       [(quote ,[Immediate -> im]) (if (eq? im #f) '(false) '(true))]
-      [(,prim ,vl* ...) (guard (prim? prim)) (handle-prim prim vl*)]
+      [(,prim ,[Value -> vl*] ...) (handle-prim prim vl*)]
       [,const (guard (or (uvar? const) (label? const)))
               `(if (eq? ,const '#f) (false) (true))]
       [,else (invalid who 'Pred-Context else)]
