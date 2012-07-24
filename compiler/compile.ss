@@ -11,8 +11,12 @@
   (export p423-compile p423-step
           ;; My passes:
           verify-scheme              ;; a9
+          optimize-direct-call       ;; a13
+          remove-anonymous-lambda    ;; a13
+          sanitize-binding-forms     ;; a13
           uncover-free               ;; a12
           convert-closures           ;; a12
+          optimize-known-call        ;; a13
           introduce-procedure-primitives ;; a12
           lift-letrec                ;; a11
           normalize-context          ;; a11
@@ -50,8 +54,12 @@
     (framework helpers)
     ;; My passes:
     (compiler verify-scheme)              ;; a9
+    (compiler optimize-direct-call)       ;; a13
+    (compiler remove-anonymous-lambda)    ;; a13
+    (compiler sanitize-binding-forms)     ;; a13
     (compiler uncover-free)               ;; a12
     (compiler convert-closures)           ;; a12
+    (compiler optimize-known-call)        ;; a13
     (compiler introduce-procedure-primitives) ;; a12
     (compiler lift-letrec)                ;; a11
     (compiler normalize-context)          ;; a11
@@ -94,8 +102,12 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
+  (optimize-direct-call)
+  (remove-anonymous-lambda)
+  (sanitize-binding-forms)
   (uncover-free)
   (convert-closures)
+  (optimize-known-call)
   (introduce-procedure-primitives)
   (lift-letrec)
   (normalize-context)

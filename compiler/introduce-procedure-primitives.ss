@@ -92,6 +92,7 @@
           (let ,bind*
             ,(make-begin `(,begins* ... ... ,ex)))))]
       [(,prim ,[ex*] ...) (guard (prim? prim)) `(,prim ,ex* ...)]
+      [(,label ,[rand*] ...) (guard (label? label)) `(,label ,rand* ...)]
       [(,[rator] ,[rand*] ...) `((procedure-code ,rator) ,rand* ...)]
       [,else (invalid who 'Expr else)]
       ))
