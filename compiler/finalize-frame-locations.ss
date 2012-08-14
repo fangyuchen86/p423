@@ -34,7 +34,8 @@
     (lambda (var)
       (match var
         [,uvar (guard (uvar? uvar) (assq uvar env))
-               (cdr (assq uvar env))]
+               (let ([x (cdr (assq uvar env))])
+                 (if (list? x) (car x) x))]
         [,reg (guard (register? reg)) reg]
         [,fvar (guard (frame-var? fvar)) fvar]
         [,else else]
@@ -46,9 +47,7 @@
         [,int (guard (integer? int)) int]
         [,label (guard (label? label)) label]
         [,[(Var env) -> var] var]
-        ;; What?  No invalid case?
-        ;; Well, there's no var?
-        ;; that's handled by procedure Var
+        [,else (invalid who 'Triv else)]
         )))
 
   (define (Effect env)
@@ -95,9 +94,35 @@
         [(,[(Triv env) -> triv] ,[(Triv env) -> loc*] ...) `(,triv ,loc* ...)]
         [,else (invalid who 'Tail else)]
         )))
-  
+
+  (define (loop als tail)
+    (match tail
+      [,x (guard (uvar? x))
+          (cond
+            [(assq x als) => cadr]
+            [else x])]
+      [(set! ,[x] ,[y]) (if (eq? x y)
+                            `(nop)
+                            `(set! ,x ,y))]
+      [(,[x] ...) `(,x ...)]
+      [,else else]))
+
   (define (Body body)
     (match body
+      
+      #;[(locals (,local* ...)
+         (ulocals (,ulocal* ...)
+           (locate ,home*
+             (frame-conflict ,fgraph
+               ,tail))))
+       `(locals (,local* ...)
+          (ulocals (,ulocal* ...)
+            (locate ,home*
+              (frame-conflict ,fgraph ,(loop home* tail)))))]
+      #;[(locate (,home* ...) ,tail)
+       `(locate (,home* ...) ,(loop home* tail))]
+
+
       [(locals (,local* ...)
          (ulocals (,ulocal* ...)
            (locate ([,uvar* ,loc*] ...)
