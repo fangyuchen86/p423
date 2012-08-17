@@ -11,6 +11,7 @@
   (export p423-compile p423-step
           ;; My passes:
           verify-scheme              ;; a9
+          convert-complex-datum      ;; a14
           optimize-direct-call       ;; a13
           remove-anonymous-lambda    ;; a13
           sanitize-binding-forms     ;; a13
@@ -54,6 +55,7 @@
     (framework helpers)
     ;; My passes:
     (compiler verify-scheme)              ;; a9
+    (compiler convert-complex-datum)      ;; a14
     (compiler optimize-direct-call)       ;; a13
     (compiler remove-anonymous-lambda)    ;; a13
     (compiler sanitize-binding-forms)     ;; a13
@@ -102,6 +104,7 @@
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
   (verify-scheme)
+  (convert-complex-datum)
   (optimize-direct-call)
   (remove-anonymous-lambda)
   (sanitize-binding-forms)
