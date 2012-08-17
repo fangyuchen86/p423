@@ -109,20 +109,6 @@
 
   (define (Body body)
     (match body
-      
-      #;[(locals (,local* ...)
-         (ulocals (,ulocal* ...)
-           (locate ,home*
-             (frame-conflict ,fgraph
-               ,tail))))
-       `(locals (,local* ...)
-          (ulocals (,ulocal* ...)
-            (locate ,home*
-              (frame-conflict ,fgraph ,(loop home* tail)))))]
-      #;[(locate (,home* ...) ,tail)
-       `(locate (,home* ...) ,(loop home* tail))]
-
-
       [(locals (,local* ...)
          (ulocals (,ulocal* ...)
            (locate ([,uvar* ,loc*] ...)

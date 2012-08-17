@@ -33,19 +33,19 @@
       [(quote ,im) (guard (immediate? im)) `(quote ,im)]
       [(if ,[test] ,[conseq] ,[altern]) `(if ,test ,conseq, altern)]
       [(begin ,[expr*] ... ,[expr^]) `(begin ,expr* ... ,expr^)]
-      [((lambda (,uvar* ...) ,[body]) ,param* ...)
-       `(let ([,uvar* ,param*] ...))]
+      [((lambda (,[uvar*] ...) ,[body]) ,[expr*] ...)
+       `(let ([,uvar* ,expr*] ...) ,body)]
       [(lambda (,uvar* ...) ,[expr^]) `(lambda (,uvar* ...) ,expr^)]
       [(let ([,uvar ,[expr*]] ...) ,[expr^])
-       `(let ([,uvar ,expr*]) ... ,expr^)]
-      [(letrec ([,uvar (lambda (,uvar** ...) ,[body])] ...) ,[expr^])
-       `(letrec ([,uvar (lambda (,uvar** ...) ,body) ...]) ,expr^)]
+       `(let ([,uvar ,expr*] ...)  ,expr^)]
+      [(letrec ([,uvar ,[expr*]] ...) ,[expr^])
+       `(letrec ([,uvar  ,expr*] ...) ,expr^)]
       [(,prim ,[expr*] ...) (guard (prim? prim)) `(,prim ,expr* ...)]
       [(,[rator] ,[rand*] ...) `(,rator ,rand* ...)]
       [,else (invalid who 'Expr else)]
       ))
     
   ;;(Expr program)
-  program
+  (Expr program)
 
 )) ;; end library
