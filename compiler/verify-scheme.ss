@@ -14,22 +14,23 @@
 ;;; verify-scheme accept a single value and verifies that the value
 ;;; is a valid program in the current source language.
 ;;;
-;;; The grammar changes only slightly from Assignment 12 in that lambda
-;;; expressions may now appear anywhere other expressions may appear.
+;;; The grammar changes from Assignment 13 in that letrec right-hand
+;;; sides can now be arbitrary expressions and in the reintroduction
+;;; of set! expressions.
 ;;;
-;;; Grammar for verify-scheme (assignment 13):
+;;; Grammar for verify-scheme (assignment 14):
 ;;;
 ;;;  Program --> <Expr>
 ;;;  Expr    --> <uvar>
 ;;;           |  (quote <Immediate>)
 ;;;           |  (if <Expr> <Expr> <Expr>)
 ;;;           |  (begin <Expr>* <Expr>)
-;;;           |  <Lambda>
+;;;           |  (lambda (<uvar>*) <Expr>)
 ;;;           |  (let ([<uvar> <Expr>]*) <Expr>)
-;;;           |  (letrec ([<uvar> <Lambda>]*) <Expr>)
+;;;           |  (letrec ([<uvar> <Expr>]*) <Expr>)
+;;;           |  (set! <uvar> <Expr>)
 ;;;           |  (<primitive> <Expr>*)
 ;;;           |  (<Expr> <Expr>*)
-;;;  Lambda  --> (lambda (<uvar>*) <Expr>)
 ;;;  Immediate -> <fixnum> | () | #t | #f
 ;;;
 ;;; Where uvar is symbol.n, n >= 0
@@ -58,6 +59,16 @@
       (null? . 1) (pair? . 1) (procedure? . 1) (set-car! . 2)
       (set-cdr! . 2) (vector? . 1) (vector-length . 1)
       (vector-ref . 2) (vector-set! . 3) (void . 0)))
+  (define (datum? x)
+    (define (constant? x)
+      (or (memq x '(#t #f ()))
+          (and (and (integer? x) (exact? x))
+               (or (fixnum-range? x)
+                   (error who "integer ~s is out of fixnum range" x)))))
+    (or (constant? x)
+        (if (pair? x)
+            (and (datum? (car x)) (datum? (cdr x)))
+            (and (vector? x) (andmap datum? (vector->list x))))))
   (define verify-x-list
     (lambda (x* x? what)
       (let loop ([x* x*] [idx* '()])
@@ -80,7 +91,9 @@
                (if (memq uvar uvar*)
                    (values)
                    (error who "unbound uvar ~s" uvar))]
-              [(quote ,[Immediate ->]) (values)]
+              [(quote ,x)
+               (unless (datum? x) (error who "invalid datum ~s" x))
+               (values)]
               [(if ,[] ,[] ,[]) (values)]
               [(begin ,[] ... ,[]) (values)]
               [(lambda (,fml* ...) ,x)
@@ -89,16 +102,16 @@
               [(let ([,new-uvar* ,[]] ...) ,x)
                (set! all-uvar* (append new-uvar* all-uvar*))
                ((Expr (append new-uvar* uvar*)) x)]
-              [(letrec ([,new-uvar* (lambda (,fml** ...) ,x*)] ...) ,x)
+              [(letrec ([,new-uvar* ,rhs*] ...) ,x)
                (set! all-uvar* (append new-uvar* all-uvar*))
-               (let ([uvar* (append new-uvar* uvar*)])
-                 (for-each
-                   (lambda (fml* x)
-                     (set! all-uvar* (append fml* all-uvar*))
-                     ((Expr (append fml* uvar*)) x))
-                   fml**
-                   x*)
-                 ((Expr uvar*) x))]
+               (let ([p (Expr (append new-uvar* uvar*))])
+                 (for-each p rhs*)
+                 (p x))]
+              [(set! ,uvar ,[])
+               (unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
+               (if (memq uvar uvar*)
+                   (values)
+                   (error who "unbound uvar ~s" uvar))]
               [(,prim ,x* ...)
                (guard (assq prim primitives))
                (unless (= (length x*) (cdr (assq prim primitives)))
@@ -110,14 +123,6 @@
                (error who "invalid Expr ~s" `(,x ,y ...))]
               [(,[] ,[] ...) (values)]
               [,x (error who "invalid Expr ~s" x)]))))
-      (define (Immediate imm)
-        (cond
-          [(memq imm '(#t #f ())) (values)]
-          [(and (integer? imm) (exact? imm))
-           (unless (fixnum-range? imm)
-             (error who "integer ~s is out of fixnum range" imm))
-           (values)]
-          [else (error who "invalid Immediate ~s" imm)]))
       ((Expr '()) x)
       (verify-x-list all-uvar* uvar? 'uvar)))
   (lambda (x) (Program x) x))

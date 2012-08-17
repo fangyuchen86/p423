@@ -280,7 +280,7 @@ static void print1(ptr x, int d) {
   } else if (x == _void) {
     printf("#<void>");
   } else {
-    fprintf(stderr, "print (runtime.c): invalid ptr #x%x\n", x);
+    fprintf(stderr, "print (runtime.c): invalid ptr #x%x\n", (unsigned int) x);
     exit(1);
   }
 }

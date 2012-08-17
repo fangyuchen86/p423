@@ -740,7 +740,7 @@
 ;;; of a unique name or label.  It returns #f if passed something other
 ;;; than a unique name or label.
 ; (module (unique-name unique-name-count extract-suffix unique-label)
-  (define count 1000)
+  (define count 10000)
   (define unique-suffix
     (lambda ()
       (set! count (+ count 1))
