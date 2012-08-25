@@ -27,11 +27,29 @@
 |#
 (define-who (purify-letrec program)
   
-  (define (Program expr)
+  (define (Expr expr)
     (match expr
-      [,else (invalid who 'Program else)]
+      [,uvar (guard (uvar? uvar)) uvar]
+      [(quote ,immediate) (guard (immediate? immediate))
+       `(quote ,immediate)]
+      [(if ,[t] ,[c] ,[a])
+       `(if ,t ,c ,a)]
+      [(begin ,[e*] ... ,[e])
+       `(begin ,e* ... ,e)]
+      [(letrec ([,uvar* ,[e*]] ...) ,[b])
+       `(letrec ([,uvar* ,e*] ...) ,b)]
+      [(let ([,uvar* ,[e*]] ...) ,[b])
+       `(let ([,uvar* ,e*] ...) ,b)]
+      [(lambda ,uvar* ,[b])
+       `(lambda ,uvar* ,b)]
+      [(set! ,uvar ,[e]) `(set! ,uvar ,e)]
+      [(,prim ,[e*] ...) (guard (prim? prim))
+       `(,prim ,e* ...)]
+      [(,[rator] ,[rand*] ...)
+       `(,rator ,rand* ...)]
+      [,else (invalid who 'expression else)]
       ))
 
-  (Program program)
+  (Expr program)
 
 )) ;; end library
