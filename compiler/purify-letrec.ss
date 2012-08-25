@@ -26,22 +26,34 @@
 ||
 |#
 (define-who (purify-letrec program)
-  
+
+  ;; bind* expr* --> simple* lambda* complex*
+  (define (partition bind* expr*)
+    (if (null? bind*)
+        (values '() '() '())
+        
+
   (define (Expr expr)
     (match expr
       [,uvar (guard (uvar? uvar)) uvar]
       [(quote ,immediate) (guard (immediate? immediate))
        `(quote ,immediate)]
-      [(if ,[t] ,[c] ,[a])
-       `(if ,t ,c ,a)]
       [(begin ,[e*] ... ,[e])
        `(begin ,e* ... ,e)]
-      [(letrec ([,uvar* ,[e*]] ...) ,[b])
+      [(if ,[t] ,[c] ,[a])
+       `(if ,t ,c ,a)]
+
+      [(letrec ([,uvar* ,[e*]] ...) (assigned ,assigned* ,[b]))
+       (let*-values ([(simple* lambda* complex*) (partition uvar* e*)])
+
+
        `(letrec ([,uvar* ,e*] ...) ,b)]
-      [(let ([,uvar* ,[e*]] ...) ,[b])
-       `(let ([,uvar* ,e*] ...) ,b)]
-      [(lambda ,uvar* ,[b])
-       `(lambda ,uvar* ,b)]
+
+
+      [(let ([,uvar* ,[e*]] ...) (assigned ,assigned* ,[b]))
+       `(let ([,uvar* ,e*] ...) (assigned ,assigned* ,b))]
+      [(lambda ,uvar* (assigned ,assigned* ,[b]))
+       `(lambda ,uvar* (assigned ,assigned* ,b))]
       [(set! ,uvar ,[e]) `(set! ,uvar ,e)]
       [(,prim ,[e*] ...) (guard (prim? prim))
        `(,prim ,e* ...)]
