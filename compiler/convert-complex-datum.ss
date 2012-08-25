@@ -35,7 +35,7 @@
       [#(,[x*] ...)
        (let ([tmp (unique-name 'tmp)]
              [len (length x*)])
-       `(let ([,tmp (make-vector ,len)])
+       `(let ([,tmp (make-vector ',len)])
           (begin
             ,(map (lambda (i v) `(vector-set! ,tmp  ',i ,v)) (iota len) x*) ... ,tmp)))]
       ))
@@ -52,10 +52,12 @@
        `(if ,expr0 ,expr1 ,expr2)]
       [(begin ,[expr*] ... ,[expr])
        `(begin ,expr* ... ,expr)]
-      [(lambda (,uvar* ...) ,[expr]) (guard (uvar? uvar*))
+      [(lambda (,uvar* ...) ,[expr])
        `(lambda (,uvar* ...) ,expr)]
-      [(let ([,uvar* ,[expr*]] ...) ,[expr]) (guard (uvar? uvar*))
+      [(let ([,uvar* ,[expr*]] ...) ,[expr])
        `(let ([,uvar* ,expr*] ...) ,expr)]
+      [(letrec ([,uvar* ,[expr*]] ...) ,[expr])
+       `(letrec ([,uvar* ,expr*] ...) ,expr)]
       [(set! ,uvar ,[expr]) (guard (uvar? uvar))
        `(set! ,uvar ,expr)]
       [(,prim ,[expr*] ...) (guard (prim? prim)) `(,prim ,expr* ...)]

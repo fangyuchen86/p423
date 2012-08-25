@@ -8,7 +8,7 @@
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
 ;; revised in A14
-;; 2012 / 8 / 17
+;; 2012 / 8 / 24
 
 #!chezscheme
 (library (compiler uncover-assigned)
@@ -32,10 +32,12 @@
       [,uvar (guard (uvar? uvar)) (values uvar `())]
       [(quote ,immediate) (guard (immediate? immediate))
        (values `(quote ,immediate) `())]
-      [(if ,[t tv*] ,[c cv*] ,[a av*]) (values `(if ,t ,c ,a) (union tv* cv* av*))]
-      [(begin ,[e* e*v] ... ,[e ev]) (values `(begin ,e* ... ,e) (apply union e*v ev))]
+      [(if ,[t tv*] ,[c cv*] ,[a av*])
+       (values `(if ,t ,c ,a) (union tv* cv* av*))]
+      [(begin ,[e* e*v] ... ,[e ev])
+       (values `(begin ,e* ... ,e) (apply union ev e*v))]
       [(letrec ([,uvar* ,[e* e*v]] ...) ,[b bv])
-       (let ([assign (intersection uvar* (apply union e*v bv))])
+       (let ([assign (intersection uvar* (apply union bv e*v))])
          (values `(letrec ([,uvar* ,e*] ...)
                     (assigned ,assign ,b))
                  (difference (apply union e*v bv) uvar*)))]
@@ -49,8 +51,10 @@
          (values `(lambda ,uvar* (assigned ,assign ,b))
                  (difference bv uvar*)))]
       [(set! ,uvar ,[e ev]) (values `(set! ,uvar ,e) (union `(,uvar) ev))]
-      [(,prim ,[e* ev*] ...) (guard (prim? prim)) (values `(,prim ,e* ...) (apply union ev*))]
-      [(,[rator rv] ,[rand* r*v] ...) (values `(,rator ,rand* ...) (apply union rv r*v))]
+      [(,prim ,[e* ev*] ...) (guard (prim? prim))
+       (values `(,prim ,e* ...) (apply union ev*))]
+      [(,[rator r*v] ,[rand* r**v] ...)
+       (values `(,rator ,rand* ...) (apply union r*v r**v))]
       [,else (invalid who 'expression else)]
       ))
 

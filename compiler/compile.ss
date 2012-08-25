@@ -108,7 +108,7 @@
   (verify-scheme)
   (convert-complex-datum)
   (uncover-assigned)
-  (optimize-direct-call)
+#|  (optimize-direct-call)
   (remove-anonymous-lambda)
   (sanitize-binding-forms)
   (uncover-free)
@@ -143,7 +143,7 @@
    (expose-basic-blocks)
    (optimize-jumps)
    (flatten-program)
-   (generate-x86-64 assemble)
+   (generate-x86-64 assemble)|#
   )
 
 ;; See the drivers.ss file for other options when defining a compiler
