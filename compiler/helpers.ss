@@ -18,6 +18,7 @@
    pred-prim?
    value-prims
    value-prim?
+   simple?
    immediate?
    binop?
    loc?
@@ -81,6 +82,34 @@
 
 (define (immediate? im)
   (or (fixnum? im) (eq? im '()) (eq? im '#f) (eq? im '#t)))
+
+
+;; simple?
+(define (simple? context lhs*)
+  (lambda (program)
+    (match program
+      [(letrec ((,uvar* ,expr*) ...) ,[body])
+       (let ([e* (map (simple? context (union lhs* uvar*)) expr*)])
+         (and (not (memq #f e*)) body #t))]
+      [(if ,[test] ,[conseq] ,[altern])
+       (and test conseq altern #t)]
+      [(begin ,[expr*] ... ,[expr])
+       (and (not (memq #f expr*)) expr #t)]
+      [(let ((,uvar* ,[expr*]) ...) (assigned ,assign* ,[body]))
+       (and (not (memq #f expr*)) body #t)]
+      [(,prim ,[expr*] ...) (guard (prim? prim))
+       (and (not (memq #f expr*)) #t)]
+      [(lambda ,uvar* (assigned ,assign* ,[(simple? #t lhs*) -> body]))
+       (and body #t)]
+      [(set! ,uvar ,[expr])
+       (and expr #t)]
+      [(quote ,immediate) #t]
+      [(,[rator] ,[rand*] ...)
+       (if context #f #t)]
+      [,uvar (guard (uvar? uvar))
+       (and (not (memq uvar lhs*)) #t)]
+      [,else (errorf 'simple? "Invalid expression: ~s" else)]
+      )))
 
 #| uncover-conflicts : tail uvar* who qualifier --> conflict-graph call-live-set
 ||

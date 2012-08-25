@@ -28,10 +28,32 @@
 (define-who (purify-letrec program)
 
   ;; bind* expr* --> simple* lambda* complex*
-  (define (partition bind* expr*)
+  ;; Separates bindings according to whether they are simple, lambda,
+  ;; or complex as according to the follows:
+  ;; simple if x is not assigned (not in the list (x! ...)) and e is
+  ;; a simple expression.
+  ;; lambda if x is not assigned and e is a lambda expression
+  ;; complex otherwise
+  (define (partition bind* expr* lhs*)
     (if (null? bind*)
         (values '() '() '())
-        
+        (let ([uvar (caar bind*)]
+              [expr (cadar bind*)]
+              [rest (cdr bind*)])
+          (let-values ([(simple* lambda* complex*)
+                        (partition rest expr* lhs*)])
+            (cond
+              [(and (not (memq uvar expr*)) ((simple? #f lhs*) expr))
+               (values `((,uvar ,expr) . ,simple*) lambda* complex*)]
+              [(and (not (memq uvar expr*)) (eq? (car expr) 'lambda))
+               (values simple* `((,uvar ,expr) . ,lambda*) complex*)]
+              [else (values simple* lambda* `((,uvar ,expr) . ,complex*))]
+              )))))
+
+  (define (split bind*)
+    (match bind*
+      [((,x* ,e*) ...) (values x* e*)]
+      ))
 
   (define (Expr expr)
     (match expr
@@ -44,11 +66,26 @@
        `(if ,t ,c ,a)]
 
       [(letrec ([,uvar* ,[e*]] ...) (assigned ,assigned* ,[b]))
-       (let*-values ([(simple* lambda* complex*) (partition uvar* e*)])
-
-
-       `(letrec ([,uvar* ,e*] ...) ,b)]
-
+       (let*-values
+           ([(simple* lambda* complex*)
+             (partition `((,uvar* ,e*) ...) assigned* uvar*)]
+            [(xc* ec*) (split complex*)])
+         (if (null? complex*)
+           `(let ,simple*
+              (assigned ()
+                (letrec ,lambda* ,b)))
+           (let ([tmp* (map (lambda (x) (unique-name 'purify-letrec))
+                            xc*)])
+             `(let ,simple*
+                (assigned ()
+                  (let ((,xc* (void)) ...)
+                    (assigned ,xc*
+                      (letrec ,lambda*
+                        (let ((,tmp* ,ec*) ...)
+                          (assigned ()
+                            ,(make-begin
+                              `((set! ,xc* ,tmp*) ... ,b))))))))))))]
+                    
 
       [(let ([,uvar* ,[e*]] ...) (assigned ,assigned* ,[b]))
        `(let ([,uvar* ,e*] ...) (assigned ,assigned* ,b))]

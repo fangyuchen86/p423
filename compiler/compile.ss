@@ -13,6 +13,7 @@
           verify-scheme              ;; a9
           convert-complex-datum      ;; a14
           uncover-assigned           ;; a14
+          purify-letrec
           optimize-direct-call       ;; a13
           remove-anonymous-lambda    ;; a13
           sanitize-binding-forms     ;; a13
@@ -58,6 +59,7 @@
     (compiler verify-scheme)              ;; a9
     (compiler convert-complex-datum)      ;; a14
     (compiler uncover-assigned)           ;; a14
+    (compiler purify-letrec)              ;; a14
     (compiler optimize-direct-call)       ;; a13
     (compiler remove-anonymous-lambda)    ;; a13
     (compiler sanitize-binding-forms)     ;; a13
@@ -108,6 +110,7 @@
   (verify-scheme)
   (convert-complex-datum)
   (uncover-assigned)
+  (purify-letrec)
 #|  (optimize-direct-call)
   (remove-anonymous-lambda)
   (sanitize-binding-forms)
