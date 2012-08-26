@@ -30,7 +30,7 @@
   (define (Expr program)
     (match program
       [,uvar (guard (uvar? uvar)) (values uvar `())]
-      [(quote ,immediate) (guard (immediate? immediate))
+      [(quote ,immediate) ;;(guard (immediate? immediate))
        (values `(quote ,immediate) `())]
       [(if ,[t tv*] ,[c cv*] ,[a av*])
        (values `(if ,t ,c ,a) (union tv* cv* av*))]
@@ -40,12 +40,12 @@
        (let ([assign (intersection uvar* (apply union bv e*v))])
          (values `(letrec ([,uvar* ,e*] ...)
                     (assigned ,assign ,b))
-                 (difference (apply union e*v bv) uvar*)))]
+                 (difference (apply union bv e*v) uvar*)))]
       [(let ([,uvar* ,[e* e*v]] ...) ,[b bv])
-       (let ([assign (intersection uvar* (apply union e*v bv))])
+       (let ([assign (intersection uvar* bv)])
          (values `(let ([,uvar* ,e*] ...)
                     (assigned ,assign ,b))
-                 (difference (apply union e*v bv) uvar*)))]
+                 (difference (apply union bv e*v) uvar*)))]
       [(lambda ,uvar* ,[b bv])
        (let ([assign (intersection uvar* bv)])
          (values `(lambda ,uvar* (assigned ,assign ,b))
@@ -59,7 +59,9 @@
       ))
 
   (match program
-    [,[Expr -> expr assign] expr]
+    [,[Expr -> expr assign*] expr]
     )
+  
+  )
 
-)) ;; end library
+) ;; end library
