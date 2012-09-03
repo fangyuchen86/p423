@@ -169,19 +169,19 @@
                `(set! ,(assq uvar uvar*) ,x)
                (error who "unbound uvar ~s" uvar))]
           
-          [(,prim ,x* ...)
+          [(,prim ,[(Expr uvar*) -> x*] ...)
            (guard (assq prim primitives))
            (unless (= (length x*) (cdr (assq prim primitives)))
              (error who "too many or few arguments ~s for ~s" (length x*) prim))
-           (for-each (Expr uvar*) x*)
+           ;;(for-each (Expr uvar*) x*)
            `(,prim ,x* ...)]
           
           [(,x ,y ...)
            (guard (and (symbol? x) (not (uvar? x))))
            (error who "invalid Expr ~s" `(,x ,y ...))]
           
-          [(,[(Expr uvar*) -> rator] ,[(Expr uvar*) -> rand] ...)
-           `(,rator ,rand ...)]
+          [(,[(Expr uvar*) -> rator] ,[(Expr uvar*) -> rand*] ...)
+           `(,rator ,rand* ...)]
           
           [,x (error who "invalid Expr ~s" x)])))
     
