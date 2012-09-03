@@ -10,7 +10,7 @@
 (library (compiler compile)
   (export p423-compile p423-step
           ;; My passes:
-          verify-scheme              ;; a9
+          parse-scheme               ;; a15
           convert-complex-datum      ;; a14
           uncover-assigned           ;; a14
           purify-letrec              ;; a14
@@ -57,7 +57,7 @@
     (framework match)
     (framework helpers)
     ;; My passes:
-    (compiler verify-scheme)              ;; a9
+    (compiler parse-scheme)               ;; a15
     (compiler convert-complex-datum)      ;; a14
     (compiler uncover-assigned)           ;; a14
     (compiler purify-letrec)              ;; a14
@@ -97,6 +97,7 @@
     (compiler flatten-program)            ;; a2
     (compiler generate-x86-64)            ;; a1
     )
+
 ;; Given a thunk that generates assembly code, this will compile the 
 ;; resulting assembly code and output it to a file named t.s
 (define (assemble thunk)
@@ -109,7 +110,7 @@
 
 ;; Defines the compiler
 (define-compiler (p423-compile p423-step pass->wrapper)
-  (verify-scheme)
+  (parse-scheme)
   (convert-complex-datum)
   (uncover-assigned)
   (purify-letrec)
