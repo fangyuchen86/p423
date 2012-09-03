@@ -27,54 +27,87 @@
 |#
 (define-who (convert-assignments expr)
   
-  (define (replace expr)
-    (match expr
-      [(assigned (,x ...) ,e)
-       (let ([tmp (unique-name 'convert-assignments)])
-         (values
-           `(let ((,x (cons ,tmp (void))) ...) ,e)
-           tmp)]
-      [,else (invalid who 'assign-form else)]
-      )))
 
-  (define (Expr expr)
-    (match expr
+  (define (convert-binding uvar* expr* assign*)
+    (cond
+      [(null? uvar*) (values '() '())]
+      [else (let-values ([(bind* tmp*)
+                          (convert-binding (cdr uvar*) (cdr expr*) assign*)])
+              (let ([x (car uvar*)]
+                    [e (car expr*)])
+                (if (memq x assign*)
+                    (let ([tmp (unique-name who)])
+                      (values `((,tmp ,e) . ,bind*) `((,x . ,tmp) . ,tmp*)))
+                    (values `((,x ,e) . ,bind*) tmp*))))]
+  ))
 
-      [,uvar (guard (uvar? uvar))
-        uvar]
 
-      [(quote ,immediate) (guard (immediate? immediate))
-       `(quote ,immediate)]
+  (define (convert-formal uvar* assign*)
+    (cond
+      [(null? uvar*) (values '() '())]
+      [else (let-values ([(formal* tmp*) (convert-formal (cdr uvar*) assign*)])
+              (let ([x (car uvar*)])
+                (if (memq x assign*)
+                    (let ([tmp (unique-name who)])
+                      (values `(,tmp . ,formal*) `((,x . ,tmp) . ,tmp*)))
+                    (values `(,x . ,formal*) tmp*))))]
+  ))
 
-      [(begin ,[e*] ... ,[e])
-       `(begin ,e* ... ,e)]
 
-      [(if ,[t] ,[c] ,[a])
-       `(if ,t ,c ,a)]
+  (define (zip-bind* assign* tmp*)
+    (map (lambda (x)
+           `(,x (cons ,(cdr (assq x tmp*)) (void))))
+         assign*)
+  )
 
-      [(letrec ([,uvar* ,[e*]] ...) ,[b])
-       `(letrec ([,uvar* ,e*] ...) ,b)]
 
-      [(let ([,uvar* ,[e*]] ...) (assigned ,assigned* ,[b]))
-       ]
+  (define (Expr new*)
+    (lambda (expr)
+      (match expr
+        
+        [,uvar (guard (uvar? uvar))
+          (if (memq uvar new*) `(car ,uvar) uvar)]
 
-      [(lambda ,uvar* (assigned ,assigned* ,[b]))
-       `(lambda ,uvar* (assigned ,assigned* ,b))]
+        [(quote ,immediate) (guard (immediate? immediate))
+         `(quote ,immediate)]
+        
+        [(begin ,[e*] ... ,[e])
+         `(begin ,e* ... ,e)]
+        
+        [(if ,[t] ,[c] ,[a])
+         `(if ,t ,c ,a)]
+        
+        [(letrec ([,uvar* ,[e*]] ...) ,[b])
+         `(letrec ([,uvar* ,e*] ...) ,b)]
+        
+        [(let ([,uvar* ,[e*]] ...) (assigned ,assigned* ,b))
+         (let*-values ([(body) ((Expr (append new* assigned*)) b)]
+                       [(bind* tmp*) (convert-binding uvar* e* assigned*)]
+                       [(assign-bind*) (zip-bind* assigned* tmp*)])
+           `(let ,bind*
+              (let ,assign-bind* ,body)))]
+        
+        [(lambda ,uvar* (assigned ,assigned* ,b))
+         (let*-values ([(body) ((Expr (append new* assigned*)) b)]
+                       [(formal* tmp*) (convert-formal uvar* assigned*)]
+                       [(assign-bind*) (zip-bind* assigned* tmp*)])
+         `(lambda ,formal*
+            (let ,assign-bind* ,body)))]
 
-      [(set! ,uvar ,[e])
-       `(set-car! ,uvar ,e)]
+        [(set! ,uvar ,[e])
+         `(set-car! ,uvar ,e)]
+        
+        [(,prim ,[e*] ...) (guard (prim? prim))
+         `(,prim ,e* ...)]
+        
+        [(,[rator] ,[rand*] ...)
+         `(,rator ,rand* ...)]
+        
+        [,else
+         (invalid who 'expression else)]
+        
+  )))
 
-      [(,prim ,[e*] ...) (guard (prim? prim))
-       `(,prim ,e* ...)]
-
-      [(,[rator] ,[rand*] ...)
-       `(,rator ,rand* ...)]
-
-      [,else
-       (invalid who 'expression else)]
-
-      ))
-
-  (Expr expr)
+  ((Expr '()) expr)
 
 )) ;; end library

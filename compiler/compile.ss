@@ -13,7 +13,8 @@
           verify-scheme              ;; a9
           convert-complex-datum      ;; a14
           uncover-assigned           ;; a14
-          purify-letrec
+          purify-letrec              ;; a14
+          convert-assignments        ;; a14
           optimize-direct-call       ;; a13
           remove-anonymous-lambda    ;; a13
           sanitize-binding-forms     ;; a13
@@ -60,6 +61,7 @@
     (compiler convert-complex-datum)      ;; a14
     (compiler uncover-assigned)           ;; a14
     (compiler purify-letrec)              ;; a14
+    (compiler convert-assignments)        ;; a14
     (compiler optimize-direct-call)       ;; a13
     (compiler remove-anonymous-lambda)    ;; a13
     (compiler sanitize-binding-forms)     ;; a13
@@ -111,7 +113,8 @@
   (convert-complex-datum)
   (uncover-assigned)
   (purify-letrec)
-#|  (optimize-direct-call)
+  (convert-assignments)
+  (optimize-direct-call)
   (remove-anonymous-lambda)
   (sanitize-binding-forms)
   (uncover-free)
@@ -146,7 +149,7 @@
    (expose-basic-blocks)
    (optimize-jumps)
    (flatten-program)
-   (generate-x86-64 assemble)|#
+   (generate-x86-64 assemble)
   )
 
 ;; See the drivers.ss file for other options when defining a compiler
