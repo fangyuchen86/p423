@@ -8,7 +8,7 @@
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
 ;; revised in A15
-;; 2012 / 9 / 2
+;; 2012 / 9 / 10
 
 #!chezscheme
 (library (compiler parse-scheme)
@@ -29,25 +29,33 @@
 ;;; Grammar for parse-scheme (assignment 15):
 ;;;
 ;;;  Program --> <Expr>
-;;;  Expr    --> <uvar>
-;;;           |  (quote <Immediate>)
+;;;  Expr    --> 
+;;;           |  <uvar>
+;;;           |  <Immediate>
+;;;           |  (quote <Datum>)
+;;;           |  (if <Expr> <Expr>)
 ;;;           |  (if <Expr> <Expr> <Expr>)
+;;;           |  (and <Expr>*) 
+;;;           |  (or <Expr>*
 ;;;           |  (begin <Expr>* <Expr>)
 ;;;           |  (lambda (<uvar>*) <Expr>)
-;;;           |  (let ([<uvar> <Expr>]*) <Expr>)
-;;;           |  (letrec ([<uvar> <Expr>]*) <Expr>)
+;;;           |  (let ([<uvar> <Expr>]*) <Expr>*)
+;;;           |  (letrec ([<uvar> <Expr>]*) <Expr>*)
 ;;;           |  (set! <uvar> <Expr>)
 ;;;           |  (<primitive> <Expr>*)
 ;;;           |  (<Expr> <Expr>*)
-;;;  Immediate -> <fixnum> | () | #t | #f
+;;;  Immediate-> <fixnum> | () | #t | #f
+;;;
 ;;;
 ;;; Where uvar is symbol.n, n >= 0
-;;;       fixnum is an exact integer
-;;;       primitives are void (zero arguments); car, cdr, vector-length,
-;;;         make-vector, boolean?, fixnum?, null?, pair?, procedure?,
-;;;         vector? (one argument); *, +, -, cons, vector-ref, <, <=, =,
-;;;         >=, >, eq?, set-car!, set-cdr! (two arguments); and vector-set!
-;;;         (three arguments).
+;;;   fixnum is an exact integer
+;;;   primitives are void (zero arguments); car, cdr, vector-length,
+;;;     make-vector, boolean?, fixnum?, null?, pair?, procedure?,
+;;;     vector? (one argument); *, +, -, cons, vector-ref, <, <=, =,
+;;;     >=, >, eq?, set-car!, set-cdr! (two arguments); and vector-set!
+;;;     (three arguments),
+;;;  datum is a constant, a pair of datums, or a vector of datums.
+;;;
 ;;;
 ;;; Within the same Program, each uvar bound by a lambda, let, or letrec
 ;;; expression must have a unique suffix.
@@ -79,6 +87,7 @@
 
 
 (define-who (parse-scheme program)
+
   (define primitives
     '((+ . 2) (- . 2) (* . 2) (<= . 2) (< . 2) (= . 2)
       (>= . 2) (> . 2) (boolean? . 1) (car . 1) (cdr . 1)
@@ -86,6 +95,7 @@
       (null? . 1) (pair? . 1) (procedure? . 1) (set-car! . 2)
       (set-cdr! . 2) (vector? . 1) (vector-length . 1)
       (vector-ref . 2) (vector-set! . 3) (void . 0)))
+
   (define (datum? x)
     (define (constant? x)
       (or (memq x '(#t #f ()))
@@ -95,7 +105,8 @@
     (or (constant? x)
         (if (pair? x)
             (and (datum? (car x)) (datum? (cdr x)))
-            (and (vector? x) (andmap datum? (vector->list x))))))
+            (and (vector? x) (and (map datum? (vector->list x))))))
+
   (define verify-x-list
     (lambda (x* x? what)
       (let loop ([x* x*] [idx* '()])
@@ -114,62 +125,62 @@
     
     (define all-uvar* '())
     
-    (define (Expr uvar*)
+    (define (Expr env uvar*)
       (lambda (x)
         (match x
           [,k (guard (or (immediate? k) (fixnum? k) (integer? k)))
               `(quote ,k)]
           
           [,id (guard (symbol? id))
-               (if (assq id uvar*)
-                   (cdr (assq id uvar*))
+               (if (assq id env)
+                   (cdr (assq id env))
                    (error "unbound variable ~s" id))]
           
           [(quote ,x)
            (unless (datum? x) (error who "invalid datum ~s" x))
            `(quote ,x)]
          
-          [(not ,[(Expr uvar*) -> e]) `(if ,e '#f '#t)]
+          [(not ,[(Expr env uvar*) -> e]) `(if ,e '#f '#t)]
           [(and) '#t]
-          [(and ,[(Expr uvar*) -> e]) e]
-          [(and ,[(Expr uvar*) -> e] ,[(Expr uvar*) -> e*] ...)
-           `(if ,e ,((Expr uvar*) `(and ,e* ...)) '#f)]
+          [(and ,[(Expr env uvar*) -> e]) e]
+          [(and ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e*] ...)
+           `(if ,e ,((Expr env uvar*) `(and ,e* ...)) '#f)]
           [(or) '#f]
-          [(or ,[(Expr uvar*) -> e]) e]
-          [(or ,[(Expr uvar*) -> e] ,[(Expr uvar*) -> e*] ...)
+          [(or ,[(Expr env uvar*) -> e]) e]
+          [(or ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e*] ...)
            (let ([tmp (unique-name who)])
              `(let ([,tmp ,e])
-                (if ,tmp ,tmp ,((Expr uvar*) `(or ,e* ...)))))]
+                (if ,tmp ,tmp ,((Expr env uvar*) `(or ,e* ...)))))]
 
  
-          [(if ,[(Expr uvar*) -> t] ,[(Expr uvar*) -> c] ,[(Expr uvar*) -> a])
+          [(if ,[(Expr env uvar*) -> t] ,[(Expr env uvar*) -> c] ,[(Expr env uvar*) -> a])
            `(if ,t ,c ,a)]
           
-          [(begin ,[(Expr uvar*) -> e*] ... ,[(Expr uvar*) -> e])
+          [(begin ,[(Expr env uvar*) -> e*] ... ,[(Expr env uvar*) -> e])
            `(begin ,e* ... ,e)]
           
           [(lambda (,fml* ...) ,x)
            (set! all-uvar* (append fml* all-uvar*))
-           `(lambda (,fml* ...) ,((Expr (append fml* uvar*)) x))]
+           `(lambda (,fml* ...) ,((Expr env (append fml* uvar*)) x))]
           
-          [(let ([,new-uvar* ,[(Expr uvar*) -> x*]] ...) ,x)
+          [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,x)
            (set! all-uvar* (append new-uvar* all-uvar*))
            `(let ([,new-uvar* x*] ...)
-              ,((Expr (append new-uvar* uvar*)) x))]
+              ,((Expr env (append new-uvar* uvar*)) x))]
           
           [(letrec ([,new-uvar* ,rhs*] ...) ,x)
            (set! all-uvar* (append new-uvar* all-uvar*))
-           (let ([p (Expr (append new-uvar* uvar*))])
+           (let ([p (Expr env (append new-uvar* uvar*))])
              (for-each p rhs*)
              (p x))]
           
-          [(set! ,uvar ,[(Expr uvar*) -> x])
+          [(set! ,uvar ,[(Expr env uvar*) -> x])
            (unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
-           (if (assq uvar uvar*)
-               `(set! ,(assq uvar uvar*) ,x)
+           (if (assq uvar env)
+               `(set! ,(assq uvar env) ,x)
                (error who "unbound uvar ~s" uvar))]
           
-          [(,prim ,[(Expr uvar*) -> x*] ...)
+          [(,prim ,[(Expr env uvar*) -> x*] ...)
            (guard (assq prim primitives))
            (unless (= (length x*) (cdr (assq prim primitives)))
              (error who "too many or few arguments ~s for ~s" (length x*) prim))
@@ -180,12 +191,12 @@
            (guard (and (symbol? x) (not (uvar? x))))
            (error who "invalid Expr ~s" `(,x ,y ...))]
           
-          [(,[(Expr uvar*) -> rator] ,[(Expr uvar*) -> rand*] ...)
+          [(,[(Expr env uvar*) -> rator] ,[(Expr env uvar*) -> rand*] ...)
            `(,rator ,rand* ...)]
           
           [,x (error who "invalid Expr ~s" x)])))
     
-    (let ([x ((Expr '()) x)])
+    (let ([x ((Expr '() '()) x)])
       (verify-x-list all-uvar* uvar? 'uvar)
       x))
   
