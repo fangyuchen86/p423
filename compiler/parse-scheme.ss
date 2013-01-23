@@ -173,23 +173,32 @@
                   [rep (replace-params fml* env+)])
              (set! all-uvar* (append rep all-uvar*))
              `(lambda (,rep ...)
-                ,((Expr `(,(append env env+) ...) (append rep uvar*)) x)))]
+                ,((Expr `(,(append env+ env) ...) (append rep uvar*)) x)))]
           
-          [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+)
+          [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+ ...)
            (let* ([env+ (map (lambda (var)
                                (cons var (unique-name var))) new-uvar*)]
                   [rep (replace-params new-uvar* env+)])
              (set! all-uvar* (append rep all-uvar*))
              `(let ([,rep ,x*] ...)
                 ,(make-begin
-                  `(,((Expr (append env env+) (append rep uvar*)) e)
-                    ,((Expr (append env env+) (append rep uvar*)) e+)))))]
+                  (if (null? e+)
+                      `(,((Expr (append env+ env) (append rep uvar*)) e))                    
+                      `(,((Expr (append env+ env) (append rep uvar*)) e)
+                        ,((Expr (append env+ env) (append rep uvar*)) e+) ...)))))]
           
-          [(letrec ([,new-uvar* ,rhs*] ...) ,x)
-           (set! all-uvar* (append new-uvar* all-uvar*))
-           (let ([p (Expr `(,env ... ,new-uvar* ...) (append new-uvar* uvar*))])
-             (for-each p rhs*)
-             (p x))]
+          [(letrec ([,new-uvar* ,rhs*] ...) ,e ,e+ ...)
+           (let* ([env+ (map (lambda (var)
+                               (cons var (unique-name var))) new-uvar*)]
+                  [rep (replace-params new-uvar* env+)])
+             (set! all-uvar* (append rep all-uvar*))
+             (let ([p (Expr (append env+ env) (append rep uvar*))])
+               (for-each p rhs*)
+               (make-begin
+                (if (null? e+)
+                    `(,(p e))
+                    `(,(p e)
+                      ,(p e+) ...)))))]
           
           [(set! ,uvar ,[(Expr env uvar*) -> x])
            (unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
@@ -204,9 +213,9 @@
            ;(for-each (Expr uvar*) x*)
            `(,prim ,x* ...)]
           
-          [(,x ,y ...)
-           (guard (and (symbol? x) (not (uvar? x))))
-           (error who "invalid Expr ~s" `(,x ,y ...))]
+          ;[(,x ,y ...)
+           ;(guard (and (symbol? x) (not (uvar? x))))
+           ;(error who "invalid Expr ~s" `(,x ,y ...))]
           
           [(,[(Expr env uvar*) -> rator] ,[(Expr env uvar*) -> rand*] ...)
            `(,rator ,rand* ...)]
