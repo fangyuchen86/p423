@@ -119,6 +119,14 @@
                 (error who "non-unique ~s suffix ~s found" what idx))
               (loop x* (cons idx idx*))))))))
 
+  (define (replace-params params env)
+    (match params
+      [() '()]
+      [,x (guard (assq x env)) (cdr (assq x env))]
+      [(,[x] . ,[y]) `(,x . ,y)]
+      [,x (error who "not replaced: ~s" x )]
+      ))
+
 
 
   (define (Program x)
@@ -159,16 +167,23 @@
           [(begin ,[(Expr env uvar*) -> e*] ... ,[(Expr env uvar*) -> e])
            `(begin ,e* ... ,e)]
           
-          ;; create unique names and bind them to assls env
-          ;; and replace occurrences in body with variable.
           [(lambda (,fml* ...) ,x)
-           (set! all-uvar* (append fml* all-uvar*))
-           `(lambda (,fml* ...) ,((Expr `(,env ... ,fml* ...) (append fml* uvar*)) x))]
+           (let* ([env+ (map (lambda (fml)
+                              (cons fml (unique-name fml))) fml*)]
+                  [rep (replace-params fml* env+)])
+             (set! all-uvar* (append rep all-uvar*))
+             `(lambda (,rep ...)
+                ,((Expr `(,(append env env+) ...) (append rep uvar*)) x)))]
           
-          [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,x)
-           (set! all-uvar* (append new-uvar* all-uvar*))
-           `(let ([,new-uvar* x*] ...)
-              ,((Expr `(,env ... ,new-uvar* ...) (append new-uvar* uvar*)) x))]
+          [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+)
+           (let* ([env+ (map (lambda (var)
+                               (cons var (unique-name var))) new-uvar*)]
+                  [rep (replace-params new-uvar* env+)])
+             (set! all-uvar* (append rep all-uvar*))
+             `(let ([,rep ,x*] ...)
+                ,(make-begin
+                  `(,((Expr (append env env+) (append rep uvar*)) e)
+                    ,((Expr (append env env+) (append rep uvar*)) e+)))))]
           
           [(letrec ([,new-uvar* ,rhs*] ...) ,x)
            (set! all-uvar* (append new-uvar* all-uvar*))
