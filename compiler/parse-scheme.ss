@@ -8,7 +8,7 @@
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
 ;; revised in A15
-;; 2012 / 9 / 10
+;; 2013 / 1 / 22
 
 #!chezscheme
 (library (compiler parse-scheme)
@@ -105,7 +105,7 @@
     (or (constant? x)
         (if (pair? x)
             (and (datum? (car x)) (datum? (cdr x)))
-            (and (vector? x) (and (map datum? (vector->list x))))))
+            (and (vector? x) (and (map datum? (vector->list x)))))))
 
   (define verify-x-list
     (lambda (x* x? what)
@@ -134,7 +134,7 @@
           [,id (guard (symbol? id))
                (if (assq id env)
                    (cdr (assq id env))
-                   (error "unbound variable ~s" id))]
+                   (error who "unbound variable ~s" id))]
           
           [(quote ,x)
            (unless (datum? x) (error who "invalid datum ~s" x))
@@ -159,18 +159,20 @@
           [(begin ,[(Expr env uvar*) -> e*] ... ,[(Expr env uvar*) -> e])
            `(begin ,e* ... ,e)]
           
+          ;; create unique names and bind them to assls env
+          ;; and replace occurrences in body with variable.
           [(lambda (,fml* ...) ,x)
            (set! all-uvar* (append fml* all-uvar*))
-           `(lambda (,fml* ...) ,((Expr env (append fml* uvar*)) x))]
+           `(lambda (,fml* ...) ,((Expr `(,env ... ,fml* ...) (append fml* uvar*)) x))]
           
           [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,x)
            (set! all-uvar* (append new-uvar* all-uvar*))
            `(let ([,new-uvar* x*] ...)
-              ,((Expr env (append new-uvar* uvar*)) x))]
+              ,((Expr `(,env ... ,new-uvar* ...) (append new-uvar* uvar*)) x))]
           
           [(letrec ([,new-uvar* ,rhs*] ...) ,x)
            (set! all-uvar* (append new-uvar* all-uvar*))
-           (let ([p (Expr env (append new-uvar* uvar*))])
+           (let ([p (Expr `(,env ... ,new-uvar* ...) (append new-uvar* uvar*))])
              (for-each p rhs*)
              (p x))]
           
@@ -184,7 +186,7 @@
            (guard (assq prim primitives))
            (unless (= (length x*) (cdr (assq prim primitives)))
              (error who "too many or few arguments ~s for ~s" (length x*) prim))
-           ;;(for-each (Expr uvar*) x*)
+           ;(for-each (Expr uvar*) x*)
            `(,prim ,x* ...)]
           
           [(,x ,y ...)
