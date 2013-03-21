@@ -26,6 +26,8 @@ env : $(ENV)
 tests : $(TESTS)
 	cat $(TESTS) | scheme $(ENV)
 
+valid : $(ENV)
+	echo "(test-valid)" | scheme $(ENV)
 # Run the testing on the compiler
 test-all :
 	echo "(test-all)" | scheme $(ENV)

@@ -8,7 +8,7 @@
 ;; Samuel Waggoner
 ;; srwaggon@indiana.edu
 ;; revised in A15
-;; 2013 / 1 / 22
+;; 2013 / 3 / 21
 
 #!chezscheme
 (library (compiler parse-scheme)
@@ -174,7 +174,7 @@
              (set! all-uvar* (append rep all-uvar*))
              `(lambda (,rep ...)
                 ,((Expr `(,(append env+ env) ...) (append rep uvar*)) x)))]
-          
+
           [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+ ...)
            (let* ([env+ (map (lambda (var)
                                (cons var (unique-name var))) new-uvar*)]
@@ -183,45 +183,27 @@
              `(let ([,rep ,x*] ...)
                 ,(make-begin
                   (if (null? e+)
-                      `(,((Expr (append env+ env) (append rep uvar*)) e))                    
-                      `(,((Expr (append env+ env) (append rep uvar*)) e)
-                        ,((Expr (append env+ env) (append rep uvar*)) e+) ...)))))]
-                    [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+ ...)
-           (let* ([env+ (map (lambda (var)
-                               (cons var (unique-name var))) new-uvar*)]
-                  [rep (replace-params new-uvar* env+)])
-             (set! all-uvar* (append rep all-uvar*))
-             `(let ([,rep ,x*] ...)
-                ,(make-begin
-                  (if (null? e+)
-                      `(,((Expr (append env+ env) (append rep uvar*)) e))                    
+                      `(,((Expr (append env+ env) (append rep uvar*)) e))          
                       `(,((Expr (append env+ env) (append rep uvar*)) e)
                         ,((Expr (append env+ env) (append rep uvar*)) e+) ...)))))]
 
-          ;; [(letrec ([,new-uvar* ,rhs*] ...) ,e ,e+ ...)
-          ;;  (let* ([env+ (map (lambda (var)
-          ;;                      (cons var (unique-name var))) new-uvar*)]
-          ;;         [rep (replace-params new-uvar* env+)])
-          ;;    (set! all-uvar* (append rep all-uvar*))
-          ;;    (let ([p (Expr (append env+ env) (append rep uvar*))])
-          ;;      (for-each p rhs*)
-          ;;      (make-begin
-          ;;       (if (null? e+)
-          ;;           `(,(p e))
-          ;;           `(,(p e)
-          ;;             ,(p e+) ...)))))]
+          [(letrec () ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e+] ...)
+           (if (null? e+)
+               `(letrec () ,e)
+               `(letrec () ,(make-begin `(,e ,e+ ...))))]
           
-          [(letrec ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+ ...)
+          [(letrec ([,new-uvar* ,e*] ...) ,e ,e+ ...)
            (let* ([env+ (map (lambda (var)
                                (cons var (unique-name var))) new-uvar*)]
                   [rep (replace-params new-uvar* env+)])
              (set! all-uvar* (append rep all-uvar*))
-             `(letrec ([,rep ,x*] ...)
-                ,(make-begin
-                  (if (null? e+)
-                      `(,((Expr (append env+ env) (append rep uvar*)) e))                    
-                      `(,((Expr (append env+ env) (append rep uvar*)) e)
-                        ,((Expr (append env+ env) (append rep uvar*)) e+) ...)))))]
+             (if (null? e+)
+                 `(letrec ([,rep ,(map (Expr (append env+ env) (append rep uvar*)) e*)] ...)
+                    ,((Expr (append env+ env) (append rep uvar*)) e))
+                 `(letrec ([,rep ,((Expr (append env+ env) (append rep uvar*)) e*)] ...)
+                    ,((Expr (append env+ env) (append rep uvar*)) e)
+                    ,((Expr (append env+ env) (append rep uvar*)) e+) ...)
+                 ))]
           
           [(set! ,uvar ,[(Expr env uvar*) -> x])
            (unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
