@@ -119,12 +119,12 @@
                 (error who "non-unique ~s suffix ~s found" what idx))
               (loop x* (cons idx idx*))))))))
 
-  (define (replace-params params env)
-    (match params
+  (define (replace-var* var* env)
+    (match var*
       [() '()]
       [,x (guard (assq x env)) (cdr (assq x env))]
       [(,[x] . ,[y]) `(,x . ,y)]
-      [,x (error who "not replaced: ~s" x )]
+      [,x (error who "var not replaced: ~s" x )]
       ))
 
 
@@ -159,8 +159,11 @@
            (let ([tmp (unique-name who)])
              `(let ([,tmp ,e])
                 (if ,tmp ,tmp ,((Expr env uvar*) `(or ,e* ...)))))]
-
- 
+          
+          [(if ,[(Expr env uvar*) -> t] ,[(Expr env uvar*) -> c]) (guard (not (assq 'if env)))
+           `(if ,t ,c (void))]
+          [(if (not ,[(Expr env uvar*) -> t]) ,[(Expr env uvar*) -> c] ,[(Expr env uvar*) -> a]) (guard (not (assq 'if env)))
+           `(if ,t ,a ,c)]
           [(if ,[(Expr env uvar*) -> t] ,[(Expr env uvar*) -> c] ,[(Expr env uvar*) -> a])
            `(if ,t ,c ,a)]
           
@@ -170,15 +173,17 @@
           [(lambda (,fml* ...) ,x)
            (let* ([env+ (map (lambda (fml)
                               (cons fml (unique-name fml))) fml*)]
-                  [rep (replace-params fml* env+)])
+                  [rep (replace-var* fml* env+)])
              (set! all-uvar* (append rep all-uvar*))
              `(lambda (,rep ...)
                 ,((Expr `(,(append env+ env) ...) (append rep uvar*)) x)))]
 
+
+
           [(let ([,new-uvar* ,[(Expr env uvar*) -> x*]] ...) ,e ,e+ ...)
            (let* ([env+ (map (lambda (var)
                                (cons var (unique-name var))) new-uvar*)]
-                  [rep (replace-params new-uvar* env+)])
+                  [rep (replace-var* new-uvar* env+)])
              (set! all-uvar* (append rep all-uvar*))
              `(let ([,rep ,x*] ...)
                 ,(make-begin
@@ -187,15 +192,17 @@
                       `(,((Expr (append env+ env) (append rep uvar*)) e)
                         ,((Expr (append env+ env) (append rep uvar*)) e+) ...)))))]
 
+
           [(letrec () ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e+] ...)
            (if (null? e+)
                `(letrec () ,e)
                `(letrec () ,(make-begin `(,e ,e+ ...))))]
+
           
           [(letrec ([,new-uvar* ,e*] ...) ,e ,e+ ...)
            (let* ([env+ (map (lambda (var)
                                (cons var (unique-name var))) new-uvar*)]
-                  [rep (replace-params new-uvar* env+)])
+                  [rep (replace-var* new-uvar* env+)])
              (set! all-uvar* (append rep all-uvar*))
              (if (null? e+)
                  `(letrec ([,rep ,(map (Expr (append env+ env) (append rep uvar*)) e*)] ...)
@@ -206,9 +213,9 @@
                  ))]
           
           [(set! ,uvar ,[(Expr env uvar*) -> x])
-           (unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
-           (if (assq uvar env)
-               `(set! ,(assq uvar env) ,x)
+           ;(unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
+           (if (and (assq uvar env) #t)
+               `(set! ,(replace-var* uvar env) ,x)
                (error who "unbound uvar ~s" uvar))]
           
           [(,prim ,[(Expr env uvar*) -> x*] ...)
