@@ -56,8 +56,8 @@
        `(lambda (,uvar* ...) ,expr)]
       [(let ([,uvar* ,[expr*]] ...) ,[expr])
        `(let ([,uvar* ,expr*] ...) ,expr)]
-      [(letrec ([,uvar* ,[expr0*]] ...) ,[expr] ,[expr1*] ...)
-       `(letrec ([,uvar* ,expr0*] ...) ,expr ,expr1* ...)]
+      [(letrec ([,uvar* ,[expr*]] ...) ,[expr])
+       `(letrec ([,uvar* ,expr*] ...) ,expr]
       [(set! ,uvar ,[expr]) (guard (uvar? uvar))
        `(set! ,uvar ,expr)]
       [(,prim ,[expr*] ...) (guard (prim? prim)) `(,prim ,expr* ...)]
