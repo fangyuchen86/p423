@@ -133,9 +133,9 @@
     
     (define all-uvar* '())
     
-    (trace-define (Expr env uvar*)
+    (define (Expr env uvar*)
       (lambda (x)
-        (trace-match expr-match x
+        (match x
           [,k (guard (or (immediate? k) (fixnum? k) (integer? k)))
               `(quote ,k)]
           
@@ -151,11 +151,11 @@
           [(not ,[(Expr env uvar*) -> e]) `(if ,e '#f '#t)]
           [(and) '#t]
           [(and ,[(Expr env uvar*) -> e]) e]
-          [(and ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e*] ...)
+          [(and ,[(Expr env uvar*) -> e] ,e* ...)
            `(if ,e ,((Expr env uvar*) `(and ,e* ...)) '#f)]
           [(or) '#f]
           [(or ,[(Expr env uvar*) -> e]) e]
-          [(or ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e*] ...)
+          [(or ,[(Expr env uvar*) -> e] ,e* ...)
            (let ([tmp (unique-name who)])
              `(let ([,tmp ,e])
                 (if ,tmp ,tmp ,((Expr env uvar*) `(or ,e* ...)))))]
