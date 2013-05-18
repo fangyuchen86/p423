@@ -133,9 +133,9 @@
     
     (define all-uvar* '())
     
-    (define (Expr env uvar*)
+    (trace-define (Expr env uvar*)
       (lambda (x)
-        (match x
+        (trace-match expr-match x
           [,k (guard (or (immediate? k) (fixnum? k) (integer? k)))
               `(quote ,k)]
           
@@ -208,8 +208,9 @@
                  `(letrec ([,rep ,(map (Expr (append env+ env) (append rep uvar*)) e*)] ...)
                     ,((Expr (append env+ env) (append rep uvar*)) e))
                  `(letrec ([,rep ,((Expr (append env+ env) (append rep uvar*)) e*)] ...)
-                    ,((Expr (append env+ env) (append rep uvar*)) e)
-                    ,((Expr (append env+ env) (append rep uvar*)) e+) ...)
+                    ,(make-begin
+                      `(,((Expr (append env+ env) (append rep uvar*)) e)
+                      ,((Expr (append env+ env) (append rep uvar*)) e+) ...)))
                  ))]
           
           [(set! ,uvar ,[(Expr env uvar*) -> x])
