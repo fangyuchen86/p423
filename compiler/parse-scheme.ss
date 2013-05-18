@@ -173,7 +173,7 @@
           [(begin ,[(Expr env uvar*) -> e*] ... ,[(Expr env uvar*) -> e])
            `(begin ,e* ... ,e)]
           
-          [(lambda (,fml* ...) ,x ,x* ...) (guard (and (not (assq 'lambda env)) (for-all symbol? fml*)))z
+          [(lambda (,fml* ...) ,x ,x* ...) (guard (and (not (assq 'lambda env)) (for-all symbol? fml*)))
            (let* ([env+ (map (lambda (fml)
                               (cons fml (unique-name fml))) fml*)]
                   [rep (replace-var* fml* env+)])
@@ -195,14 +195,6 @@
                         [expr (Expr new-env new-uvar*)])
                    `(begin ,@(map expr (cons e e*)))
                    )))]
-          
-
-          ;; [(letrec () ,[(Expr env uvar*) -> e] ,[(Expr env uvar*) -> e+] ...)
-          ;;  (if (null? e+)
-          ;;      `(letrec () ,e)
-          ;;      `(letrec () ,(make-begin `(,e ,e+ ...))))]
-
-          
           [(letrec ([,new-uvar* ,e*] ...) ,e ,e+ ...)
            (let* ([env+ (map (lambda (var)
                                (cons var (unique-name var))) new-uvar*)]
@@ -221,7 +213,6 @@
                    )))]
           
           [(set! ,uvar ,[(Expr env uvar*) -> x])
-           ;(unless (uvar? uvar) (error who "invalid set! lhs ~s" uvar))
            (if (and (assq uvar env) #t)
                `(set! ,(replace-var* uvar env) ,x)
                (error who "unbound uvar ~s" uvar))]
