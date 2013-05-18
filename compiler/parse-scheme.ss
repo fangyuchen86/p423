@@ -148,7 +148,7 @@
            (unless (datum? x) (error who "invalid datum ~s" x))
            `(quote ,x)]
          
-          [(not ,[(Expr env uvar*) -> e]) `(if ,e '#f '#t)]
+          [(not ,[(Expr env uvar*) -> e]) (guard (not (assq 'not env))) `(if ,e '#f '#t)]
           [(and) '#t]
           [(and ,[(Expr env uvar*) -> e]) e]
           [(and ,[(Expr env uvar*) -> e] ,e* ...)
@@ -162,8 +162,8 @@
           
           [(if ,[(Expr env uvar*) -> t] ,[(Expr env uvar*) -> c]) (guard (not (assq 'if env)))
            `(if ,t ,c (void))]
-          [(if (not ,[(Expr env uvar*) -> t]) ,[(Expr env uvar*) -> c] ,[(Expr env uvar*) -> a]) (guard (not (assq 'if env)))
-           `(if ,t ,a ,c)]
+          ;[(if (not ,[(Expr env uvar*) -> t]) ,[(Expr env uvar*) -> c] ,[(Expr env uvar*) -> a]) (guard (not (assq 'if env)))
+          ; `(if ,t ,a ,c)]
           [(if ,[(Expr env uvar*) -> t] ,[(Expr env uvar*) -> c] ,[(Expr env uvar*) -> a])
            `(if ,t ,c ,a)]
           
