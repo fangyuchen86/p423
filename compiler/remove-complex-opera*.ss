@@ -154,7 +154,7 @@
       ))
 
   (begin
-    (unique-name-count 10000)
+    
     (Program program)
     )
 

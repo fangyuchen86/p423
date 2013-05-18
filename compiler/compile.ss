@@ -152,7 +152,7 @@
    (flatten-program)
    (generate-x86-64 assemble)
   )
-
+(unique-name-count 10000)
 ;; See the drivers.ss file for other options when defining a compiler
 
 ) ;; End library
